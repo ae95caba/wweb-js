@@ -34,6 +34,13 @@ client.on("message_create", async (message) => {
   const isFromMe = message._data.id.fromMe;
   let name;
   let log;
+  const chat = await message.getChat();
+
+  // Check if the chat is archived
+  if (chat.archived) {
+    return;
+  }
+
   if (isFromMe) {
     log = `Me: ${message.body}`;
   } else {
