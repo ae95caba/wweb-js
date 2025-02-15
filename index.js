@@ -37,7 +37,7 @@ client.on("message_create", async (message) => {
   const chat = await message.getChat();
 
   // Check if the chat is archived
-  if (chat.archived) {
+  if (chat.archived || chat.id.server === "g.us") {
     return;
   }
 
