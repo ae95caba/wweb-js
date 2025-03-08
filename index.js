@@ -35,39 +35,35 @@ client.on("message_create", async (message) => {
   let name;
   let log;
   const chat = await message.getChat();
-  const targetNumber = "5491130350056@c.us"; // The number you don't want to forward messages to/from
+  const isGroupChat = chat.id.server === "g.us";
   // Check if the chat is archived
-  if (chat.archived || chat.id.server === "g.us") {
-    return;
-  }
-
-  // Ignore messages sent to or received from the target number
-  if (message.from === targetNumber || message.to === targetNumber) {
-    return;
-  }
-
+  const isArchived = chat.archived;
   // Ignore status updates (WhatsApp Stories)
-  if (message.from === "status@broadcast") {
+  const isStory = message.from === "status@broadcast";
+  const targetNumber = "5491130350056@c.us"; // The number you don't want to forward messages to/from
+  // Skip empty or "This message can't be displayed here" messages
+  const isTextLess = !message.body || message.body === "";
+  const hasImage = message.type === "image";
+  const isEmpty = !hasImage && isTextLess;
+  // Ignore messages sent to or received from the target number
+  const isIrrelevant =
+    message.from === targetNumber || message.to === targetNumber;
+  // Check if the chat is archived
+  if (isGroupChat || isArchived || isStory || isTextLess || isIrrelevant) {
     return;
   }
 
-  // Ignore system messages (disappearing messages, deleted messages, etc.)
+  /*  // Ignore system messages (disappearing messages, deleted messages, etc.)
   const systemTypes = ["protocol", "revoked", "ciphertext"];
   if (systemTypes.includes(message.type)) {
     return;
   }
-
-  // Skip empty or "This message can't be displayed here" messages
-  if (!message.body || message.body === "") {
-    return;
-  }
+ */
 
   if (isFromMe) {
-    if (isFromMe) {
-      const contact = await client.getContactById(message.to);
-      const receiver = contact.name || contact.number; // Prioritize pushname, then name, then number
-      log = `Me: ${message.body} to ${receiver}`;
-    }
+    const contact = await client.getContactById(message.to);
+    const receiver = contact.name || contact.number; // Prioritize pushname, then name, then number
+    log = `Me: ${message.body} to ${receiver}`;
   } else {
     contact = await message.getContact();
     name = contact.name || contact.pushname;
