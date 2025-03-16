@@ -1,6 +1,6 @@
 const fs = require("fs");
 const qrcode = require("qrcode-terminal");
-const { Client, LocalAuth } = require("whatsapp-web.js");
+const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 
 // Use the session data if it exists
 const client = new Client({
@@ -30,12 +30,17 @@ client.on("message", (message) => {
 });
 
 client.on("message_create", async (message) => {
-  console.log("----------------------------------");
   const isFromMe = message._data.id.fromMe;
   let name;
   let log;
   const chat = await message.getChat();
-  const isGroupChat = chat.id.server === "g.us";
+  /*   console.log("-------------    START CHAT    ---------------------");
+  console.log(JSON.stringify(chat));
+  console.log("---------------   END CHAT   -------------------");
+   
+  console.log("-------------    START MESSAGE    ---------------------");
+  console.log(JSON.stringify(message));
+  console.log("-------------    END MESSAGE    ---------------------"); */
   // Check if the chat is archived
   const isArchived = chat.archived;
   // Ignore status updates (WhatsApp Stories)
@@ -44,26 +49,60 @@ client.on("message_create", async (message) => {
   // Skip empty or "This message can't be displayed here" messages
   const isTextLess = !message.body || message.body === "";
   const hasImage = message.type === "image";
+  const imageData = hasImage && message._data.body;
+  const isGroupChat = chat.id.server === "g.us";
+  const isMuted = chat.muteExpiration === -1;
+
   const isEmpty = !hasImage && isTextLess;
   // Ignore messages sent to or received from the target number
   const isIrrelevant =
     message.from === targetNumber || message.to === targetNumber;
-  // Check if the chat is archived
-  if (isGroupChat || isArchived || isStory || isTextLess || isIrrelevant) {
+  //////////////////////
+
+  const reasonsToIgnoreMessage = [];
+
+  if (isGroupChat) reasonsToIgnoreMessage.push("isGroupChat");
+  if (isArchived) reasonsToIgnoreMessage.push("isArchived");
+  if (isStory) reasonsToIgnoreMessage.push("isStory");
+
+  if (isIrrelevant) reasonsToIgnoreMessage.push("isIrrelevant");
+  if (isMuted) reasonsToIgnoreMessage.push("isMuted");
+  if (isEmpty) reasonsToIgnoreMessage.push("isEmpty");
+
+  if (reasonsToIgnoreMessage.length > 0) {
+    console.log("--------------- START -------------------");
+    console.log("return triggered");
+    console.log("reason:", reasonsToIgnoreMessage.join(", "));
+    console.log("--------------- END -------------------");
     return;
   }
 
-  /*  // Ignore system messages (disappearing messages, deleted messages, etc.)
-  const systemTypes = ["protocol", "revoked", "ciphertext"];
-  if (systemTypes.includes(message.type)) {
-    return;
+  // handling images
+  if (hasImage) {
+    console.log(
+      "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    );
+
+    console.log(`image data`);
+    console.log(message._data.body);
+    console.log(
+      "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    );
+
+    const media = new MessageMedia("image/jpeg", imageData);
+    // Send the image
+    await client.sendMessage(targetNumber, media, {
+      caption: "Here is your image!",
+    });
+    console.log("Image sent successfully!");
+  } else {
+    console.log("doesnt have image");
   }
- */
 
   if (isFromMe) {
     const contact = await client.getContactById(message.to);
     const receiver = contact.name || contact.number; // Prioritize pushname, then name, then number
-    log = `Me: ${message.body} to ${receiver}`;
+    log = `Mama: ${message.body} a ${receiver}`;
   } else {
     contact = await message.getContact();
     name = contact.name || contact.pushname;
