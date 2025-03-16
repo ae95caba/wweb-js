@@ -34,71 +34,64 @@ client.on("message_create", async (message) => {
   let name;
   let log;
   const chat = await message.getChat();
-  /*   console.log("-------------    START CHAT    ---------------------");
-  console.log(JSON.stringify(chat));
-  console.log("---------------   END CHAT   -------------------");
-   
-  console.log("-------------    START MESSAGE    ---------------------");
-  console.log(JSON.stringify(message));
-  console.log("-------------    END MESSAGE    ---------------------"); */
-  // Check if the chat is archived
-  const isArchived = chat.archived;
-  // Ignore status updates (WhatsApp Stories)
-  const isStory = message.from === "status@broadcast";
+
   const targetNumber = "5491130350056@c.us"; // The number you don't want to forward messages to/from
-  // Skip empty or "This message can't be displayed here" messages
-  const isTextLess = !message.body || message.body === "";
+
   const hasImage = message.type === "image";
   const imageData = hasImage && message._data.body;
-  const isGroupChat = chat.id.server === "g.us";
-  const isMuted = chat.muteExpiration === -1;
 
-  const isEmpty = !hasImage && isTextLess;
-  // Ignore messages sent to or received from the target number
-  const isIrrelevant =
-    message.from === targetNumber || message.to === targetNumber;
-  //////////////////////
+  function shouldIgnoreMessage() {
+    // Check if the chat is archived
+    const isArchived = chat.archived;
+    // Ignore status updates (WhatsApp Stories)
+    const isStory = message.from === "status@broadcast";
 
-  const reasonsToIgnoreMessage = [];
+    const isTextLess = !message.body || message.body === "";
 
-  if (isGroupChat) reasonsToIgnoreMessage.push("isGroupChat");
-  if (isArchived) reasonsToIgnoreMessage.push("isArchived");
-  if (isStory) reasonsToIgnoreMessage.push("isStory");
+    //ignore group messages
+    const isGroupChat = chat.id.server === "g.us";
+    //ignore muted chats
+    const isMuted = chat.muteExpiration === -1;
+    // Skip empty or "This message can't be displayed here" messages
+    const isEmpty = !hasImage && isTextLess;
+    // Ignore messages sent to or received from the target number
+    const isIrrelevant =
+      message.from === targetNumber || message.to === targetNumber;
+    const reasonsToIgnoreMessage = [];
 
-  if (isIrrelevant) reasonsToIgnoreMessage.push("isIrrelevant");
-  if (isMuted) reasonsToIgnoreMessage.push("isMuted");
-  if (isEmpty) reasonsToIgnoreMessage.push("isEmpty");
+    if (isGroupChat) reasonsToIgnoreMessage.push("isGroupChat");
+    if (isArchived) reasonsToIgnoreMessage.push("isArchived");
+    if (isStory) reasonsToIgnoreMessage.push("isStory");
 
-  if (reasonsToIgnoreMessage.length > 0) {
-    console.log("--------------- START -------------------");
-    console.log("return triggered");
-    console.log("reason:", reasonsToIgnoreMessage.join(", "));
-    console.log("--------------- END -------------------");
+    if (isIrrelevant) reasonsToIgnoreMessage.push("isIrrelevant");
+    if (isMuted) reasonsToIgnoreMessage.push("isMuted");
+    if (isEmpty) reasonsToIgnoreMessage.push("isEmpty");
+
+    if (reasonsToIgnoreMessage.length > 0) {
+      console.log("--------------- START -------------------");
+      console.log("return triggered");
+      console.log("reason:", reasonsToIgnoreMessage.join(", "));
+      console.log("--------------- END -------------------");
+      return reasonsToIgnoreMessage.length;
+    }
+  }
+  if (shouldIgnoreMessage()) {
     return;
   }
 
-  // handling images
+  // handling messages with images
   if (hasImage) {
-    console.log(
-      "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-    );
-
-    console.log(`image data`);
-    console.log(message._data.body);
-    console.log(
-      "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-    );
-
     const media = new MessageMedia("image/jpeg", imageData);
     // Send the image
     await client.sendMessage(targetNumber, media, {
-      caption: "Here is your image!",
+      caption: message.body,
     });
     console.log("Image sent successfully!");
   } else {
     console.log("doesnt have image");
   }
 
+  //handle the rest of messages
   if (isFromMe) {
     const contact = await client.getContactById(message.to);
     const receiver = contact.name || contact.number; // Prioritize pushname, then name, then number
@@ -108,13 +101,13 @@ client.on("message_create", async (message) => {
     name = contact.name || contact.pushname;
     log = `${name}: ${message.body}`;
   }
-
+  console.log("--------------- START  -------------------");
   console.log(log);
   // Forward the message
 
   await client.sendMessage(targetNumber, log);
 
-  console.log("----------------------------------");
+  console.log("--------------- END -------------------");
 });
 
 client.on("disconnected", (reason) => {
