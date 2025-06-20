@@ -1,0 +1,73 @@
+const axios = require("axios");
+
+async function preguntarIAEnEspanol(pregunta) {
+  const prompt = `Usuario: ${pregunta}\nAsistente:`;
+
+  const respuesta = await axios.post(
+    "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
+    {
+      inputs: prompt,
+      parameters: {
+        max_new_tokens: 200,
+        temperature: 0.7,
+      },
+    },
+    {
+      headers: {
+        Authorization: `Bearer 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`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  return (
+    respuesta.data?.[0]?.generated_text?.replace(prompt, "").trim() ||
+    "No entendí."
+  );
+}
+
+module.exports = { preguntarIAEnEspanol, shouldIgnoreMessage };
+
+async function shouldIgnoreMessage(message) {
+  let name;
+  let log;
+  const isFromMe = message._data.id.fromMe;
+  const targetNumber = "5491130350056@c.us"; // The number you don't want to forward messages to/from
+
+  const hasImage = message.type === "image";
+
+  const chat = await message.getChat();
+  // Check if the chat is archived
+  const isArchived = chat.archived;
+  // Ignore status updates (WhatsApp Stories)
+  const isStory = message.from === "status@broadcast";
+
+  const isTextLess = !message.body || message.body === "";
+
+  //ignore group messages
+  const isGroupChat = chat.id.server === "g.us";
+  //ignore muted chats
+  const isMuted = chat.muteExpiration === -1;
+  // Skip empty or "This message can't be displayed here" messages
+  const isEmpty = !hasImage && isTextLess;
+  // Ignore messages sent to or received from the target number
+  const isIrrelevant =
+    message.from === targetNumber || message.to === targetNumber;
+  const reasonsToIgnoreMessage = [];
+
+  if (isGroupChat) reasonsToIgnoreMessage.push("isGroupChat");
+  if (isArchived) reasonsToIgnoreMessage.push("isArchived");
+  if (isStory) reasonsToIgnoreMessage.push("isStory");
+
+  /* if (isIrrelevant) reasonsToIgnoreMessage.push("isIrrelevant"); */
+  if (isMuted) reasonsToIgnoreMessage.push("isMuted");
+  if (isEmpty) reasonsToIgnoreMessage.push("isEmpty");
+
+  if (reasonsToIgnoreMessage.length > 0) {
+    console.log("--------------- START -------------------");
+    console.log("return triggered");
+    console.log("reason:", reasonsToIgnoreMessage.join(", "));
+    console.log("--------------- END -------------------");
+    return reasonsToIgnoreMessage.length;
+  }
+}

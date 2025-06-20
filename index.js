@@ -1,6 +1,7 @@
 const fs = require("fs");
 const qrcode = require("qrcode-terminal");
 const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
+const { preguntarIAEnEspanol, shouldIgnoreMessage } = require("./ai,js");
 
 // Use the session data if it exists
 const client = new Client({
@@ -23,11 +24,11 @@ client.on("auth_failure", (msg) => {
   console.error("AUTHENTICATION FAILURE", msg);
 });
 
-client.on("message", (message) => {
+/* client.on("message", (message) => {
   if (message.body === "Hello") {
     client.sendMessage(message.from, "World");
   }
-});
+}); */
 
 client.on("message_create", async (message) => {
   const isFromMe = message._data.id.fromMe;
@@ -63,7 +64,7 @@ client.on("message_create", async (message) => {
     if (isArchived) reasonsToIgnoreMessage.push("isArchived");
     if (isStory) reasonsToIgnoreMessage.push("isStory");
 
-    if (isIrrelevant) reasonsToIgnoreMessage.push("isIrrelevant");
+    /* if (isIrrelevant) reasonsToIgnoreMessage.push("isIrrelevant"); */
     if (isMuted) reasonsToIgnoreMessage.push("isMuted");
     if (isEmpty) reasonsToIgnoreMessage.push("isEmpty");
 
@@ -108,6 +109,22 @@ client.on("message_create", async (message) => {
   await client.sendMessage(targetNumber, log);
 
   console.log("--------------- END -------------------");
+});
+
+client.on("message", async (message) => {
+  // Only reply to user messages, not from the bot itself, and only for text messages
+  if (!message._data.id.fromMe && message.type === "chat" && message.body) {
+    if (await shouldIgnoreMessage(message)) {
+      return;
+    }
+    try {
+      const respuesta = await preguntarIAEnEspanol(message.body);
+      await message.reply(respuesta);
+    } catch (err) {
+      console.error("Error al consultar la IA:", err);
+      await message.reply("Ocurrió un error al consultar la IA.");
+    }
+  }
 });
 
 client.on("disconnected", (reason) => {
