@@ -129,3 +129,12 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Sensitive data and tokens
+*.token
+*token*
+token.txt
+toekn.txt
+secrets.txt
+api_keys.txt
+.env.local
