@@ -1,32 +1,119 @@
 const axios = require("axios");
 
-async function preguntarIAEnEspanol(pregunta) {
-  const prompt = `Usuario: ${pregunta}\nAsistente:`;
+// Estado de conversación por usuario
+const userStates = {}; // { [userId]: { state: 'menu' | 'option1' | 'option2' | etc } }
 
-  const respuesta = await axios.post(
-    "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3",
-    {
-      inputs: prompt,
-      parameters: {
-        max_new_tokens: 200,
-        temperature: 0.7,
-      },
-    },
-    {
-      headers: {
-        Authorization: `Bearer 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`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
+// Función para mostrar el menú principal
+function getMainMenu() {
+  return `🤖 *Bienvenido al Bot*
 
-  return (
-    respuesta.data?.[0]?.generated_text?.replace(prompt, "").trim() ||
-    "No entendí."
-  );
+Por favor, selecciona una opción:
+
+1️⃣ *Información*
+2️⃣ *Servicios*
+3️⃣ *Contacto*
+4️⃣ *Ayuda*
+5️⃣ *Salir*
+
+Responde con el número de la opción (1-5)`;
 }
 
-module.exports = { preguntarIAEnEspanol, shouldIgnoreMessage };
+// Función para manejar las opciones del menú
+function handleMenuOption(option, userId) {
+  switch (option) {
+    case "1":
+      return `ℹ️ *Información*
+      
+Somos una empresa dedicada a brindar soluciones tecnológicas de calidad. Nuestro equipo está comprometido con la excelencia y la innovación.
+
+¿Deseas volver al menú principal? Responde con "menu"`;
+
+    case "2":
+      return `🛠️ *Servicios*
+      
+Ofrecemos los siguientes servicios:
+• Desarrollo web
+• Aplicaciones móviles
+• Consultoría IT
+• Soporte técnico
+
+¿Deseas volver al menú principal? Responde con "menu"`;
+
+    case "3":
+      return `📞 *Contacto*
+      
+Puedes contactarnos a través de:
+• WhatsApp: +1234567890
+• Email: info@empresa.com
+• Web: www.empresa.com
+
+¿Deseas volver al menú principal? Responde con "menu"`;
+
+    case "4":
+      return `❓ *Ayuda*
+      
+Si necesitas ayuda, puedes:
+• Escribir "menu" para volver al menú principal
+• Contactar a soporte: +1234567890
+• Visitar nuestra web: www.empresa.com/ayuda
+
+¿Deseas volver al menú principal? Responde con "menu"`;
+
+    case "5":
+      userStates[userId] = { state: "menu" };
+      return `👋 *¡Hasta luego!*
+      
+Gracias por usar nuestro bot. ¡Que tengas un excelente día!
+
+Para volver a empezar, escribe "hola" o "menu"`;
+
+    default:
+      return `❌ Opción no válida. Por favor, selecciona un número del 1 al 5.
+
+${getMainMenu()}`;
+  }
+}
+
+// Función principal para manejar mensajes del bot
+function handleBotMessage(message) {
+  const userId = message.from;
+  const userMessage = message.body ? message.body.toLowerCase().trim() : "";
+
+  // Inicializar estado del usuario si no existe
+  if (!userStates[userId]) {
+    userStates[userId] = { state: "menu" };
+  }
+
+  let response = "";
+
+  // Manejar comandos especiales
+  if (
+    userMessage === "hola" ||
+    userMessage === "menu" ||
+    userMessage === "inicio"
+  ) {
+    userStates[userId] = { state: "menu" };
+    response = getMainMenu();
+  }
+  // Manejar opciones del menú
+  else if (userStates[userId].state === "menu") {
+    if (["1", "2", "3", "4", "5"].includes(userMessage)) {
+      response = handleMenuOption(userMessage, userId);
+    } else {
+      response = `❌ Por favor, selecciona una opción válida (1-5).
+
+${getMainMenu()}`;
+    }
+  }
+  // Si no hay respuesta válida
+  else {
+    response = `❌ Comando no reconocido. Escribe "menu" para volver al menú principal.
+
+${getMainMenu()}`;
+  }
+
+  return response;
+}
 
 async function shouldIgnoreMessage(message) {
   let name;
@@ -41,7 +128,10 @@ async function shouldIgnoreMessage(message) {
   const isArchived = chat.archived;
   // Ignore status updates (WhatsApp Stories)
   const isStory = message.from === "status@broadcast";
-
+  const isSticker = message.type === "sticker";
+  const isVoiceMessage = message.type === "ptt";
+  console.log("message type is: ");
+  console.log(message.type);
   const isTextLess = !message.body || message.body === "";
 
   //ignore group messages
@@ -49,7 +139,7 @@ async function shouldIgnoreMessage(message) {
   //ignore muted chats
   const isMuted = chat.muteExpiration === -1;
   // Skip empty or "This message can't be displayed here" messages
-  const isEmpty = !hasImage && isTextLess;
+  const isEmpty = !hasImage && isTextLess && !isVoiceMessage && !isSticker;
   // Ignore messages sent to or received from the target number
   const isIrrelevant =
     message.from === targetNumber || message.to === targetNumber;
@@ -71,3 +161,5 @@ async function shouldIgnoreMessage(message) {
     return reasonsToIgnoreMessage.length;
   }
 }
+
+module.exports = { shouldIgnoreMessage, handleBotMessage };
