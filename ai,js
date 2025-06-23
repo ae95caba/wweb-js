@@ -26,7 +26,9 @@ async function getMainMenu() {
     const availableProducts = products.filter((p) => !p.outOfStock);
     let menu = `🤖 *Bienvenido al Bot*\n\nPor favor, selecciona un producto o una opción:\n\n`;
     availableProducts.forEach((p, i) => {
-      menu += `${numberToEmoji(i + 1)} *${p.name}*\n`;
+      menu += `${numberToEmoji(i + 1)} *${p.name.toUpperCase()}* - $${
+        p.price
+      }\n`;
     });
     menu += `\n${numberToEmoji(
       availableProducts.length + 1
