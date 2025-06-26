@@ -578,7 +578,7 @@ async function handleBotMessage(message) {
     ) {
       userStates[userId].selectedAddOn = selectedAddOn;
       userStates[userId].state = "ask-addon-quantity";
-      return `¿Cuántos ${selectedAddOn.name} querés?\nIngresa un número o 0 para cancelar y volver al menú de add-ons.`;
+      return `🔢 *¿Cuántos* ${selectedAddOn.name.toUpperCase()} *quieres agregar?*\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
     }
     userStates[userId].selectedAddOn = selectedAddOn;
     userStates[userId].state = "confirm-add-on";
@@ -593,7 +593,7 @@ async function handleBotMessage(message) {
     const selectedAddOn = userStates[userId].selectedAddOn;
     const qty = parseInt(userMessage, 10);
     if (isNaN(qty) || qty < 0) {
-      return `Por favor ingresa un número válido o 0 para cancelar.\n¿Cuántos ${selectedAddOn.name} querés?`;
+      return `🔢 *¿Cuántos* ${selectedAddOn.name.toUpperCase()} *quieres agregar?*\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
     }
     if (qty === 0) {
       userStates[userId].state = "add-ons-selection";
