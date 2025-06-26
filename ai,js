@@ -136,9 +136,22 @@ function renderCart(cart) {
       msg += `\n   Sabores: ${item.flavours.join(", ")}`;
     }
     if (item["addOns"] && item["addOns"].length > 0) {
-      msg += `\n   Add-ons: ${item["addOns"].join(", ")} (+$${
-        item["addOnsPrice"]
-      })`;
+      msg += `\n   Add-ons:`;
+      // Mostrar detalles de cada add-on
+      const addOnsArr = item["addOns"];
+      const addOnsData = item.selectedAddOnsData || [];
+      addOnsArr.forEach((name, idx) => {
+        // Buscar si hay info de cantidad
+        const data = addOnsData.find((a) => a && a.name === name);
+        if (data && data.quantity) {
+          msg += `\n     - ${name} x${data.quantity} ($${data.price}) = $${
+            data.price * data.quantity
+          }`;
+        } else {
+          msg += `\n     - ${name}`;
+        }
+      });
+      msg += `\n   Total add-ons: +$${item["addOnsPrice"]}`;
     }
     msg += "\n";
   });
@@ -166,10 +179,11 @@ async function showIceCreamConfirmation(userId) {
   if (selectedAddOns.length > 0) {
     cartItem["addOns"] = selectedAddOns.map((a) => a.name);
     cartItem["addOnsPrice"] = selectedAddOns.reduce(
-      (sum, a) => sum + a.price,
+      (sum, a) => sum + a.price * (a.quantity || 1),
       0
     );
     cartItem["totalPrice"] = selectedProduct.price + cartItem["addOnsPrice"];
+    cartItem["selectedAddOnsData"] = selectedAddOns;
   }
 
   userStates[userId].cart.push(cartItem);
@@ -556,12 +570,44 @@ async function handleBotMessage(message) {
 
     // Usuario eligió un add-on
     const selectedAddOn = availableAddOns[option - 1];
-    console.log(`[BOT] Add-on seleccionado:`, selectedAddOn);
+    // Si el add-on es uno de los especiales, preguntar cantidad
+    if (
+      ["64f3b8caf0f00fea17c6ad9d", "6674b84f1f17aff336ef3fc5"].includes(
+        selectedAddOn._id
+      )
+    ) {
+      userStates[userId].selectedAddOn = selectedAddOn;
+      userStates[userId].state = "ask-addon-quantity";
+      return `¿Cuántos ${selectedAddOn.name} querés?\nIngresa un número o 0 para cancelar y volver al menú de add-ons.`;
+    }
     userStates[userId].selectedAddOn = selectedAddOn;
     userStates[userId].state = "confirm-add-on";
     console.log(`[BOT] Transición a estado: confirm-add-on`);
     return `🍫 *Add-on seleccionado:* ${selectedAddOn.name.toUpperCase()}\n\n💲Precio: $${
       selectedAddOn.price
+    }\n\n¿Confirmas este add-on?\n1️⃣ Sí\n2️⃣ No`;
+  }
+
+  // Preguntar cantidad para add-ons especiales
+  if (userStates[userId].state === "ask-addon-quantity") {
+    const selectedAddOn = userStates[userId].selectedAddOn;
+    const qty = parseInt(userMessage, 10);
+    if (isNaN(qty) || qty < 0) {
+      return `Por favor ingresa un número válido o 0 para cancelar.\n¿Cuántos ${selectedAddOn.name} querés?`;
+    }
+    if (qty === 0) {
+      userStates[userId].state = "add-ons-selection";
+      const { menu } = await getAddOnsMenu();
+      return menu;
+    }
+    // Guardar add-on con cantidad
+    const addOnWithQty = { ...selectedAddOn, quantity: qty };
+    userStates[userId].selectedAddOn = addOnWithQty;
+    userStates[userId].state = "confirm-add-on";
+    return `🍫 *Add-on seleccionado:* ${selectedAddOn.name.toUpperCase()}\nCantidad: ${qty}\n💲Precio unitario: $${
+      selectedAddOn.price
+    }\n💲Total: $${
+      selectedAddOn.price * qty
     }\n\n¿Confirmas este add-on?\n1️⃣ Sí\n2️⃣ No`;
   }
 
