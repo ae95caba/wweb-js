@@ -6,6 +6,40 @@ const userStates = {}; // { [userId]: { state: 'menu' | 'product' | 'ice-cream-f
 // Usuarios que están hablando con una persona real (bot desactivado)
 const usersWithHumanSupport = new Set();
 
+// Función para verificar si estamos en horario de atención
+function isBusinessHours() {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentDay = now.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+
+  // Horarios de atención:
+  // Lunes a Viernes: 20:00 - 24:00
+  // Sábados, Domingos y Feriados: 13:00 - 01:00 del día siguiente
+
+  const isWeekday = currentDay >= 1 && currentDay <= 5; // Lunes a Viernes
+  const isWeekend = currentDay === 0 || currentDay === 6; // Domingo o Sábado
+
+  if (isWeekday) {
+    // Lunes a Viernes: 20:00 - 24:00
+    return currentHour >= 20 && currentHour < 24;
+  } else if (isWeekend) {
+    // Sábados y Domingos: 13:00 - 01:00 del día siguiente
+    return currentHour >= 13 || currentHour < 1;
+  }
+
+  return false;
+}
+
+// Función para obtener el mensaje de horarios
+function getBusinessHoursMessage() {
+  return "🕐 *Horarios de atención:*\nLunes a Viernes: 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00";
+}
+
+// Función para obtener mensaje de fuera de horario
+function getOutOfHoursMessage() {
+  return "❌ *Lo sentimos, estamos cerrados*\n\n🕐 *Horarios de atención:*\nLunes a Viernes: 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\nPor favor, vuelve a intentar durante nuestro horario de atención.";
+}
+
 // Helper: number to emoji, usando un emoji por cada dígito
 function numberToEmoji(n) {
   const emojiMap = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"];
@@ -24,7 +58,7 @@ async function getMainMenu() {
     );
     // Filtrar productos disponibles
     const availableProducts = products.filter((p) => !p.outOfStock);
-    let menu = `🤖 *Bienvenido al Bot*\n\nPor favor, selecciona un producto o una opción:\n\n`;
+    let menu = `🤖 *Bienvenido al Bot*\n\n${getBusinessHoursMessage()}\n\nPor favor, selecciona un producto o una opción:\n\n`;
     availableProducts.forEach((p, i) => {
       menu += `${numberToEmoji(i + 1)} *${p.name.toUpperCase()}* - $${
         p.price
@@ -95,6 +129,33 @@ async function handleBotMessage(message) {
   // Inicializar carrito si no existe
   if (!userStates[userId].cart) userStates[userId].cart = [];
 
+  // Verificar si el usuario está usando comandos de testing
+  if (userMessage === "test_horario_on") {
+    userStates[userId].testMode = true;
+    console.log(`[BOT] Usuario ${userId} activó modo test`);
+    return `✅ *Modo test activado*\n\n🕐 Verificación de horarios desactivada\n\nPuedes usar el bot normalmente sin restricciones de horario.\n\nPara desactivar el modo test, escribe "test_horario_off"`;
+  }
+
+  if (userMessage === "test_horario_off") {
+    userStates[userId].testMode = false;
+    console.log(`[BOT] Usuario ${userId} desactivó modo test`);
+    console.log(`[BOT] Estado actual del usuario:`, userStates[userId]);
+    return `❌ *Modo test desactivado*\n\n🕐 Verificación de horarios reactivada\n\nAhora el bot respetará los horarios de atención normales.\n\nEstado actual: testMode = ${userStates[userId].testMode}`;
+  }
+
+  // Verificar horarios de atención al inicio (excepto si está en modo test)
+  if (!userStates[userId].testMode && !isBusinessHours()) {
+    console.log(
+      `[BOT] Usuario ${userId} intentó hacer un pedido fuera de horario`
+    );
+    console.log(
+      `[BOT] testMode: ${
+        userStates[userId].testMode
+      }, isBusinessHours: ${isBusinessHours()}`
+    );
+    return getOutOfHoursMessage();
+  }
+
   // Si el usuario está en modo persona real, no responder
   if (usersWithHumanSupport.has(userId)) return;
 
@@ -105,7 +166,10 @@ async function handleBotMessage(message) {
 
   // Mostrar menú principal si el usuario escribe "menu", "hola" o "inicio"
   if (["menu", "hola", "inicio"].includes(userMessage)) {
-    userStates[userId] = { state: "menu" };
+    userStates[userId] = {
+      state: "menu",
+      testMode: userStates[userId].testMode,
+    };
     const { menu, availableProducts } = await getMainMenu();
     userStates[userId].availableProducts = availableProducts;
     console.log(`[BOT] Transición a estado: menu`);
@@ -129,12 +193,18 @@ async function handleBotMessage(message) {
     }
     if (option === availableProducts.length + 1) {
       usersWithHumanSupport.add(userId);
-      userStates[userId] = { state: "human_support" };
+      userStates[userId] = {
+        state: "human_support",
+        testMode: userStates[userId].testMode,
+      };
       console.log(`[BOT] Transición a estado: human_support`);
       return `👨‍💼 *Conectando con una persona real...*\n\n✅ *Bot desactivado para esta conversación*\n\nUn representante se pondrá en contacto contigo pronto. Mientras tanto, puedes escribir libremente y serás atendido por una persona real.`;
     }
     if (option === availableProducts.length + 2) {
-      userStates[userId] = { state: "menu" };
+      userStates[userId] = {
+        state: "menu",
+        testMode: userStates[userId].testMode,
+      };
       console.log(`[BOT] Transición a estado: menu (salir)`);
       return `👋 *¡Hasta luego!*\n\nGracias por usar nuestro bot. ¡Que tengas un excelente día!\n\nPara volver a empezar, escribe "hola" o "menu"`;
     }
@@ -183,7 +253,10 @@ async function handleBotMessage(message) {
         )}\n\n¿Quieres agregar otro producto?\n1️⃣ Sí\n2️⃣ No`;
       }
     } else if (userMessage === "2" || userMessage === "no") {
-      userStates[userId].state = "menu";
+      userStates[userId] = {
+        state: "menu",
+        testMode: userStates[userId].testMode,
+      };
       const { menu, availableProducts: newProducts } = await getMainMenu();
       userStates[userId].availableProducts = newProducts;
       console.log(`[BOT] Transición a estado: menu (producto no confirmado)`);
@@ -423,7 +496,10 @@ async function handleBotMessage(message) {
   // Después de confirmar sabores de helado
   if (userStates[userId].state === "show-flavour-confirmation") {
     if (userMessage === "1" || userMessage === "sí" || userMessage === "si") {
-      userStates[userId].state = "menu";
+      userStates[userId] = {
+        state: "menu",
+        testMode: userStates[userId].testMode,
+      };
       const { menu, availableProducts: newProducts } = await getMainMenu();
       userStates[userId].availableProducts = newProducts;
       console.log(
@@ -448,6 +524,14 @@ async function handleBotMessage(message) {
 
   // Opción de entrega
   if (userStates[userId].state === "delivery-option") {
+    // Verificar horarios nuevamente antes de procesar la entrega (excepto si está en modo test)
+    if (!userStates[userId].testMode && !isBusinessHours()) {
+      console.log(
+        `[BOT] Usuario ${userId} intentó procesar entrega fuera de horario`
+      );
+      return getOutOfHoursMessage();
+    }
+
     if (
       userMessage === "1" ||
       userMessage === "envío" ||
@@ -465,7 +549,7 @@ async function handleBotMessage(message) {
       console.log(`[BOT] Transición a estado: pickup-confirmation`);
       return `🏪 *Retiro en local confirmado*\n\n${renderCart(
         userStates[userId].cart
-      )}\n\n📍 *Dirección del local:*\nAv. Principal 123, Centro\nHorarios: Lunes a Domingo 9:00 - 22:00\n\n¡Gracias por tu pedido! Te avisaremos cuando esté listo para retirar.`;
+      )}\n\n📍 *Dirección del local:*\nAv. Principal 123, Centro\nHorarios: Lunes a Viernes 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\n¡Gracias por tu pedido! Te avisaremos cuando esté listo para retirar.`;
     } else {
       console.log(`[BOT] Respuesta inválida en delivery-option`);
       return `❌ Por favor, selecciona una opción válida.\n\n🚚 *¿Cómo quieres recibir tu pedido?*\n\n1️⃣ 🏠 *Envío a domicilio*\n2️⃣ 🏪 *Retirar en el local*`;
@@ -515,7 +599,7 @@ async function handleBotMessage(message) {
     console.log(`[BOT] Transición a estado: order-complete (retiro)`);
     return `✅ *¡Pedido confirmado para retiro!*\n\n${renderCart(
       userStates[userId].cart
-    )}\n\n🏪 *Retiro en local*\n📍 Av. Principal 123, Centro\nHorarios: Lunes a Domingo 9:00 - 22:00\n\n⏰ Tu pedido estará listo en aproximadamente 15-20 minutos.\n\n¡Gracias por tu compra! Si quieres hacer otro pedido, escribe "menu".`;
+    )}\n\n🏪 *Retiro en local*\n📍 Av. Principal 123, Centro\nHorarios: Lunes a Viernes 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\n⏰ Tu pedido estará listo en aproximadamente 15-20 minutos.\n\n¡Gracias por tu compra! Si quieres hacer otro pedido, escribe "menu".`;
   }
 
   // Si no hay respuesta válida
@@ -593,4 +677,7 @@ module.exports = {
   handleBotMessage,
   getBotStats,
   usersWithHumanSupport,
+  isBusinessHours,
+  getBusinessHoursMessage,
+  getOutOfHoursMessage,
 };
