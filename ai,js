@@ -405,11 +405,13 @@ async function handleBotMessage(message) {
       console.log(`[BOT] Transición a estado: menu (agregar otro producto)`);
       return menu;
     } else if (userMessage === "2" || userMessage === "no") {
-      userStates[userId].state = "end";
-      console.log(`[BOT] Transición a estado: end (pedido finalizado)`);
+      userStates[userId].state = "delivery-option";
+      console.log(
+        `[BOT] Transición a estado: delivery-option (pedido finalizado)`
+      );
       return `${renderCart(
         userStates[userId].cart
-      )}\n\n¡Gracias por tu pedido! Si quieres empezar de nuevo, escribe "menu".`;
+      )}\n\n🚚 *¿Cómo quieres recibir tu pedido?*\n\n1️⃣ 🏠 *Envío a domicilio*\n2️⃣ 🏪 *Retirar en el local*`;
     } else {
       console.log(`[BOT] Respuesta inválida en show-product-info`);
       return `${renderCart(
@@ -429,19 +431,91 @@ async function handleBotMessage(message) {
       );
       return menu;
     } else if (userMessage === "2" || userMessage === "no") {
-      userStates[userId].state = "end";
+      userStates[userId].state = "delivery-option";
       console.log(
-        `[BOT] Transición a estado: end (pedido finalizado tras sabores)`
+        `[BOT] Transición a estado: delivery-option (pedido finalizado tras sabores)`
       );
       return `${renderCart(
         userStates[userId].cart
-      )}\n\n¡Gracias por tu pedido! Si quieres empezar de nuevo, escribe "menu".`;
+      )}\n\n🚚 *¿Cómo quieres recibir tu pedido?*\n\n1️⃣ 🏠 *Envío a domicilio*\n2️⃣ 🏪 *Retirar en el local*`;
     } else {
       console.log(`[BOT] Respuesta inválida en show-flavour-confirmation`);
       return `${renderCart(
         userStates[userId].cart
       )}\n\n¿Quieres agregar otro producto?\n1️⃣ Sí\n2️⃣ No`;
     }
+  }
+
+  // Opción de entrega
+  if (userStates[userId].state === "delivery-option") {
+    if (
+      userMessage === "1" ||
+      userMessage === "envío" ||
+      userMessage === "domicilio"
+    ) {
+      userStates[userId].state = "ask-address";
+      console.log(`[BOT] Transición a estado: ask-address`);
+      return `📍 *Por favor, envía tu dirección completa:*\n\nIncluye:\n• Calle y número\n• Entre calles\n• Barrio\n\nEjemplo: "Av. Corrientes 1234, entre Callao y Uruguay, Palermo"`;
+    } else if (
+      userMessage === "2" ||
+      userMessage === "retirar" ||
+      userMessage === "local"
+    ) {
+      userStates[userId].state = "pickup-confirmation";
+      console.log(`[BOT] Transición a estado: pickup-confirmation`);
+      return `🏪 *Retiro en local confirmado*\n\n${renderCart(
+        userStates[userId].cart
+      )}\n\n📍 *Dirección del local:*\nAv. Principal 123, Centro\nHorarios: Lunes a Domingo 9:00 - 22:00\n\n¡Gracias por tu pedido! Te avisaremos cuando esté listo para retirar.`;
+    } else {
+      console.log(`[BOT] Respuesta inválida en delivery-option`);
+      return `❌ Por favor, selecciona una opción válida.\n\n🚚 *¿Cómo quieres recibir tu pedido?*\n\n1️⃣ 🏠 *Envío a domicilio*\n2️⃣ 🏪 *Retirar en el local*`;
+    }
+  }
+
+  // Solicitar dirección
+  if (userStates[userId].state === "ask-address") {
+    if (userMessage && userMessage.length > 10) {
+      userStates[userId].deliveryAddress = userMessage;
+      userStates[userId].state = "address-confirmation";
+      console.log(`[BOT] Transición a estado: address-confirmation`);
+      return `📍 *Dirección confirmada:*\n${userMessage}\n\n${renderCart(
+        userStates[userId].cart
+      )}\n\n¿Es correcta la dirección?\n1️⃣ Sí\n2️⃣ No (escribir de nuevo)`;
+    } else {
+      console.log(`[BOT] Dirección muy corta en ask-address`);
+      return `❌ Por favor, envía una dirección más completa.\n\nIncluye:\n• Calle y número\n• Entre calles\n• Barrio\n\nEjemplo: "Av. Corrientes 1234, entre Callao y Uruguay, Palermo"`;
+    }
+  }
+
+  // Confirmar dirección
+  if (userStates[userId].state === "address-confirmation") {
+    if (userMessage === "1" || userMessage === "sí" || userMessage === "si") {
+      userStates[userId].state = "order-complete";
+      console.log(`[BOT] Transición a estado: order-complete`);
+      return `✅ *¡Pedido confirmado!*\n\n${renderCart(
+        userStates[userId].cart
+      )}\n\n📍 *Dirección de entrega:*\n${
+        userStates[userId].deliveryAddress
+      }\n\n🚚 Tu pedido será entregado en aproximadamente 30-45 minutos.\n\n¡Gracias por tu compra! Si quieres hacer otro pedido, escribe "menu".`;
+    } else if (userMessage === "2" || userMessage === "no") {
+      userStates[userId].state = "ask-address";
+      console.log(
+        `[BOT] Transición a estado: ask-address (dirección incorrecta)`
+      );
+      return `📍 *Por favor, envía tu dirección completa nuevamente:*\n\nIncluye:\n• Calle y número\n• Entre calles\n• Barrio\n\nEjemplo: "Av. Corrientes 1234, entre Callao y Uruguay, Palermo"`;
+    } else {
+      console.log(`[BOT] Respuesta inválida en address-confirmation`);
+      return `❌ Por favor, responde con 1 (sí) o 2 (no).\n\n📍 *Dirección confirmada:*\n${userStates[userId].deliveryAddress}\n\n¿Es correcta la dirección?\n1️⃣ Sí\n2️⃣ No (escribir de nuevo)`;
+    }
+  }
+
+  // Confirmar retiro en local
+  if (userStates[userId].state === "pickup-confirmation") {
+    userStates[userId].state = "order-complete";
+    console.log(`[BOT] Transición a estado: order-complete (retiro)`);
+    return `✅ *¡Pedido confirmado para retiro!*\n\n${renderCart(
+      userStates[userId].cart
+    )}\n\n🏪 *Retiro en local*\n📍 Av. Principal 123, Centro\nHorarios: Lunes a Domingo 9:00 - 22:00\n\n⏰ Tu pedido estará listo en aproximadamente 15-20 minutos.\n\n¡Gracias por tu compra! Si quieres hacer otro pedido, escribe "menu".`;
   }
 
   // Si no hay respuesta válida
