@@ -101,20 +101,85 @@ async function getFlavourMenu() {
   }
 }
 
+// Función para mostrar menú de add-ons
+async function getAddOnsMenu() {
+  try {
+    const { data: products } = await axios.get(
+      "http://localhost:3000/products"
+    );
+    const addOns = products.filter((p) => p.type === "add-on" && !p.outOfStock);
+    let menu = `🍫 *¿Quieres agregar algún topping o complemento?*\n\n`;
+    addOns.forEach((addon, i) => {
+      menu += `${numberToEmoji(i + 1)} *${addon.name.toUpperCase()}* - $${
+        addon.price
+      }\n`;
+    });
+    menu += `\n${numberToEmoji(addOns.length + 1)} *No, gracias*\n`;
+    menu += `\nResponde con el número de la opción (1-${addOns.length + 1})`;
+    return { menu, addOns };
+  } catch (e) {
+    return {
+      menu: "❌ Error al obtener los add-ons. Intenta más tarde.",
+      addOns: [],
+    };
+  }
+}
+
 // Helper para mostrar el carrito
 function renderCart(cart) {
   if (!cart || cart.length === 0) return "🛒 *Tu carrito está vacío.*";
   let msg = "🛒 *Tu carrito actual:*\n";
   cart.forEach((item, i) => {
-    msg += `${numberToEmoji(i + 1)} *${item.name.toUpperCase()}* - $${
-      item.price
-    }`;
+    const price = item["totalPrice"] || item.price;
+    msg += `${numberToEmoji(i + 1)} *${item.name.toUpperCase()}* - $${price}`;
     if (item.flavours && item.flavours.length > 0) {
       msg += `\n   Sabores: ${item.flavours.join(", ")}`;
+    }
+    if (item["addOns"] && item["addOns"].length > 0) {
+      msg += `\n   Add-ons: ${item["addOns"].join(", ")} (+$${
+        item["addOnsPrice"]
+      })`;
     }
     msg += "\n";
   });
   return msg;
+}
+
+// Función para mostrar confirmación final del helado con add-ons
+async function showIceCreamConfirmation(userId) {
+  const availableProducts = userStates[userId].availableProducts;
+  const selectedProduct = availableProducts.find(
+    (p) => p._id === userStates[userId].selectedProductId
+  );
+  const confirmedFlavours = userStates[userId].confirmedFlavours || [];
+  const selectedAddOns = userStates[userId].selectedAddOns || [];
+
+  // Crear el item del carrito
+  const cartItem = {
+    name: selectedProduct.name,
+    price: selectedProduct.price,
+    _id: selectedProduct._id,
+    flavours: confirmedFlavours,
+  };
+
+  // Agregar add-ons si existen
+  if (selectedAddOns.length > 0) {
+    cartItem["addOns"] = selectedAddOns.map((a) => a.name);
+    cartItem["addOnsPrice"] = selectedAddOns.reduce(
+      (sum, a) => sum + a.price,
+      0
+    );
+    cartItem["totalPrice"] = selectedProduct.price + cartItem["addOnsPrice"];
+  }
+
+  userStates[userId].cart.push(cartItem);
+  userStates[userId].state = "show-flavour-confirmation";
+  // Limpiar add-ons seleccionados para el próximo producto
+  userStates[userId].selectedAddOns = [];
+
+  return `${renderCart(
+    userStates[userId].cart
+  )}\n\n¿Quieres agregar otro producto?\n1️⃣ Sí\n2️⃣ No`;
 }
 
 // Función principal para manejar mensajes del bot
@@ -327,38 +392,35 @@ async function handleBotMessage(message) {
 
   // Confirmación de sabores
   if (userStates[userId].state === "confirm-flavours") {
+    console.log(`[BOT] En estado confirm-flavours, mensaje: '${userMessage}'`);
     const availableFlavours = userStates[userId].availableFlavours;
     const maxFlavours = userStates[userId].maxFlavours || 1;
     const selectedOptions = userStates[userId].pendingFlavours || [];
     const selectedFlavours = selectedOptions.map(
       (opt) => availableFlavours[opt - 1].name
     );
+    console.log(
+      `[BOT] Sabores seleccionados: ${selectedFlavours.join(
+        ", "
+      )}, maxFlavours: ${maxFlavours}`
+    );
+
     if (userMessage === "1" || userMessage === "sí" || userMessage === "si") {
       if (selectedOptions.length < maxFlavours) {
         userStates[userId].state = "add-more-flavour";
         console.log(`[BOT] Transición a estado: add-more-flavour`);
         return `Aún puedes elegir un sabor más, ¿quieres hacerlo?\n1️⃣ Sí\n2️⃣ No`;
       } else {
-        // Agregar producto con sabores al carrito inmediatamente
-        const availableProducts = userStates[userId].availableProducts;
-        const selectedProduct = availableProducts.find(
-          (p) => p._id === userStates[userId].selectedProductId
-        );
-        if (selectedProduct) {
-          userStates[userId].cart.push({
-            name: selectedProduct.name,
-            price: selectedProduct.price,
-            _id: selectedProduct._id,
-            flavours: selectedFlavours,
-          });
-        }
-        userStates[userId].state = "show-flavour-confirmation";
+        // Guardar sabores confirmados y ir al menú de add-ons
+        console.log(`[BOT] Sabores completos, guardando y yendo a add-ons`);
+        userStates[userId].confirmedFlavours = selectedFlavours;
+        userStates[userId].state = "add-ons-selection";
+        const { menu, addOns } = await getAddOnsMenu();
+        userStates[userId].availableAddOns = addOns;
         console.log(
-          `[BOT] Transición a estado: show-flavour-confirmation (sabores confirmados)`
+          `[BOT] Transición a estado: add-ons-selection, addOns disponibles: ${addOns.length}`
         );
-        return `${renderCart(
-          userStates[userId].cart
-        )}\n\n¿Quieres agregar otro producto?\n1️⃣ Sí\n2️⃣ No`;
+        return menu;
       }
     } else if (userMessage === "2" || userMessage === "no") {
       userStates[userId].state = "ice-cream-flavour";
@@ -392,26 +454,15 @@ async function handleBotMessage(message) {
         .map((f, i) => ({ ...f, idx: i + 1 }))
         .filter((f) => !selectedOptions.includes(f.idx));
       if (remainingFlavours.length === 0) {
-        // Agregar producto con sabores al carrito inmediatamente
-        const availableProducts = userStates[userId].availableProducts;
-        const selectedProduct = availableProducts.find(
-          (p) => p._id === userStates[userId].selectedProductId
-        );
-        if (selectedProduct) {
-          userStates[userId].cart.push({
-            name: selectedProduct.name,
-            price: selectedProduct.price,
-            _id: selectedProduct._id,
-            flavours: selectedFlavours,
-          });
-        }
-        userStates[userId].state = "show-flavour-confirmation";
+        // Guardar sabores confirmados y mostrar menú de add-ons
+        userStates[userId].confirmedFlavours = selectedFlavours;
+        userStates[userId].state = "add-ons-selection";
+        const { menu, addOns } = await getAddOnsMenu();
+        userStates[userId].availableAddOns = addOns;
         console.log(
-          `[BOT] No quedan más sabores, transición a show-flavour-confirmation`
+          `[BOT] Transición a estado: add-ons-selection (sin más sabores)`
         );
-        return `${renderCart(
-          userStates[userId].cart
-        )}\n\n¿Quieres agregar otro producto?\n1️⃣ Sí\n2️⃣ No`;
+        return menu;
       }
       userStates[userId].state = "add-flavour-selection";
       userStates[userId].remainingFlavours = remainingFlavours;
@@ -424,26 +475,15 @@ async function handleBotMessage(message) {
       console.log(`[BOT] Transición a estado: add-flavour-selection`);
       return menu;
     } else if (userMessage === "2" || userMessage === "no") {
-      // Agregar producto con sabores al carrito inmediatamente
-      const availableProducts = userStates[userId].availableProducts;
-      const selectedProduct = availableProducts.find(
-        (p) => p._id === userStates[userId].selectedProductId
-      );
-      if (selectedProduct) {
-        userStates[userId].cart.push({
-          name: selectedProduct.name,
-          price: selectedProduct.price,
-          _id: selectedProduct._id,
-          flavours: selectedFlavours,
-        });
-      }
-      userStates[userId].state = "show-flavour-confirmation";
+      // Guardar sabores confirmados y mostrar menú de add-ons
+      userStates[userId].confirmedFlavours = selectedFlavours;
+      userStates[userId].state = "add-ons-selection";
+      const { menu, addOns } = await getAddOnsMenu();
+      userStates[userId].availableAddOns = addOns;
       console.log(
-        `[BOT] Transición a estado: show-flavour-confirmation (sabores confirmados)`
+        `[BOT] Transición a estado: add-ons-selection (usuario no quiere más sabores)`
       );
-      return `${renderCart(
-        userStates[userId].cart
-      )}\n\n¿Quieres agregar otro producto?\n1️⃣ Sí\n2️⃣ No`;
+      return menu;
     } else {
       console.log(`[BOT] Respuesta inválida en add-more-flavour`);
       return `Por favor responde con 1 (sí) o 2 (no).\n\nAún puedes elegir un sabor más, ¿quieres hacerlo?\n1️⃣ Sí\n2️⃣ No`;
@@ -481,6 +521,113 @@ async function handleBotMessage(message) {
     return `🍦 *Los sabores que elegiste son:* ${selectedFlavours.join(
       ", "
     )}\n\n¿Es correcto?\n1️⃣ Sí\n2️⃣ No`;
+  }
+
+  // Selección de add-ons
+  if (userStates[userId].state === "add-ons-selection") {
+    console.log(`[BOT] En estado add-ons-selection, mensaje: '${userMessage}'`);
+    const availableAddOns = userStates[userId].availableAddOns;
+    console.log(
+      `[BOT] Add-ons disponibles:`,
+      availableAddOns ? availableAddOns.length : "undefined"
+    );
+
+    const option = parseInt(userMessage, 10);
+    console.log(
+      `[BOT] Opción parseada: ${option}, rango válido: 1 a ${
+        availableAddOns.length + 1
+      }`
+    );
+
+    if (isNaN(option) || option < 1 || option > availableAddOns.length + 1) {
+      const { menu } = await getAddOnsMenu();
+      console.log(`[BOT] Opción inválida en add-ons-selection`);
+      return `❌ Por favor, selecciona una opción válida.\n\n${menu}`;
+    }
+
+    if (option === availableAddOns.length + 1) {
+      // Usuario eligió "No, gracias" - ir directamente a confirmación final
+      userStates[userId].state = "show-ice-cream-confirmation";
+      console.log(
+        `[BOT] Transición a estado: show-ice-cream-confirmation (sin add-ons)`
+      );
+      return await showIceCreamConfirmation(userId);
+    }
+
+    // Usuario eligió un add-on
+    const selectedAddOn = availableAddOns[option - 1];
+    console.log(`[BOT] Add-on seleccionado:`, selectedAddOn);
+    userStates[userId].selectedAddOn = selectedAddOn;
+    userStates[userId].state = "confirm-add-on";
+    console.log(`[BOT] Transición a estado: confirm-add-on`);
+    return `🍫 *Add-on seleccionado:* ${selectedAddOn.name.toUpperCase()}\n\n💲Precio: $${
+      selectedAddOn.price
+    }\n\n¿Confirmas este add-on?\n1️⃣ Sí\n2️⃣ No`;
+  }
+
+  // Confirmación de add-on
+  if (userStates[userId].state === "confirm-add-on") {
+    if (userMessage === "1" || userMessage === "sí" || userMessage === "si") {
+      // Guardar add-on confirmado
+      if (!userStates[userId].selectedAddOns)
+        userStates[userId].selectedAddOns = [];
+      userStates[userId].selectedAddOns.push(userStates[userId].selectedAddOn);
+      userStates[userId].selectedAddOn = null;
+      userStates[userId].state = "add-another-addon";
+      console.log(`[BOT] Add-on confirmado, preguntar si quiere otro`);
+      return `🍫 *¿Quieres agregar otro topping o complemento?*\n1️⃣ Sí\n2️⃣ No`;
+    } else if (userMessage === "2" || userMessage === "no") {
+      userStates[userId].state = "add-ons-selection";
+      const { menu } = await getAddOnsMenu();
+      console.log(
+        `[BOT] Transición a estado: add-ons-selection (add-on no confirmado)`
+      );
+      return menu;
+    } else {
+      console.log(`[BOT] Respuesta inválida en confirm-add-on`);
+      return `Por favor responde con 1 (sí) o 2 (no).\n\n🍫 *Add-on seleccionado:* ${userStates[
+        userId
+      ].selectedAddOn.name.toUpperCase()}\n\n💲Precio: $${
+        userStates[userId].selectedAddOn.price
+      }\n\n¿Confirmas este add-on?\n1️⃣ Sí\n2️⃣ No`;
+    }
+  }
+
+  // Preguntar si quiere otro add-on
+  if (userStates[userId].state === "add-another-addon") {
+    if (userMessage === "1" || userMessage === "sí" || userMessage === "si") {
+      // Mostrar menú de add-ons quitando los ya elegidos
+      const { menu, addOns } = await getAddOnsMenu();
+      const alreadySelected = userStates[userId].selectedAddOns || [];
+      const filteredAddOns = addOns.filter(
+        (a) => !alreadySelected.some((sel) => sel._id === a._id)
+      );
+      userStates[userId].availableAddOns = filteredAddOns;
+      userStates[userId].state = "add-ons-selection";
+      if (filteredAddOns.length === 0) {
+        // No quedan más add-ons
+        userStates[userId].state = "show-ice-cream-confirmation";
+        return await showIceCreamConfirmation(userId);
+      }
+      let filteredMenu = `🍫 *¿Quieres agregar otro topping o complemento?*\n\n`;
+      filteredAddOns.forEach((addon, i) => {
+        filteredMenu += `${numberToEmoji(
+          i + 1
+        )} *${addon.name.toUpperCase()}* - $${addon.price}\n`;
+      });
+      filteredMenu += `\n${numberToEmoji(
+        filteredAddOns.length + 1
+      )} *No, gracias*\n`;
+      filteredMenu += `\nResponde con el número de la opción (1-${
+        filteredAddOns.length + 1
+      })`;
+      return filteredMenu;
+    } else if (userMessage === "2" || userMessage === "no") {
+      userStates[userId].state = "show-ice-cream-confirmation";
+      return await showIceCreamConfirmation(userId);
+    } else {
+      return `Por favor responde con 1 (sí) o 2 (no).\n\n¿Quieres agregar otro topping o complemento?\n1️⃣ Sí\n2️⃣ No`;
+    }
   }
 
   // Después de mostrar descripción y precio de un producto (no helado)
