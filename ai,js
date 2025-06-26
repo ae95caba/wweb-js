@@ -178,19 +178,32 @@ async function handleBotMessage(message) {
 
   // Menú principal dinámico
   if (userStates[userId].state === "menu") {
+    console.log(`[BOT] Procesando menú principal, mensaje: '${userMessage}'`);
     const availableProducts = userStates[userId].availableProducts;
+    console.log(
+      `[BOT] Productos disponibles:`,
+      availableProducts ? availableProducts.length : "undefined"
+    );
+
     if (!availableProducts) {
       const { menu, availableProducts: products } = await getMainMenu();
       userStates[userId].availableProducts = products;
       console.log(`[BOT] Sin productos en estado, mostrando menú principal`);
       return menu;
     }
+
     const option = parseInt(userMessage, 10);
+    console.log(`[BOT] Opción parseada: ${option}, esNaN: ${isNaN(option)}`);
+    console.log(`[BOT] Rango válido: 1 a ${availableProducts.length + 2}`);
+
     if (isNaN(option) || option < 1 || option > availableProducts.length + 2) {
       const { menu } = await getMainMenu();
-      console.log(`[BOT] Opción inválida en menú principal`);
+      console.log(`[BOT] Opción inválida en menú principal: ${option}`);
       return `❌ Por favor, selecciona una opción válida.\n\n${menu}`;
     }
+
+    console.log(`[BOT] Opción válida seleccionada: ${option}`);
+
     if (option === availableProducts.length + 1) {
       usersWithHumanSupport.add(userId);
       userStates[userId] = {
@@ -208,7 +221,9 @@ async function handleBotMessage(message) {
       console.log(`[BOT] Transición a estado: menu (salir)`);
       return `👋 *¡Hasta luego!*\n\nGracias por usar nuestro bot. ¡Que tengas un excelente día!\n\nPara volver a empezar, escribe "hola" o "menu"`;
     }
+
     const selectedProduct = availableProducts[option - 1];
+    console.log(`[BOT] Producto seleccionado:`, selectedProduct);
     userStates[userId].selectedProductId = selectedProduct._id;
     // Mostrar confirmación del producto
     userStates[userId].state = "confirm-product";
@@ -600,6 +615,29 @@ async function handleBotMessage(message) {
     return `✅ *¡Pedido confirmado para retiro!*\n\n${renderCart(
       userStates[userId].cart
     )}\n\n🏪 *Retiro en local*\n📍 Av. Principal 123, Centro\nHorarios: Lunes a Viernes 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\n⏰ Tu pedido estará listo en aproximadamente 15-20 minutos.\n\n¡Gracias por tu compra! Si quieres hacer otro pedido, escribe "menu".`;
+  }
+
+  // Pedido completado - solo responder a comandos específicos
+  if (userStates[userId].state === "order-complete") {
+    if (["menu", "hola", "inicio"].includes(userMessage)) {
+      // Limpiar carrito y reiniciar estado para nuevo pedido
+      userStates[userId] = {
+        state: "menu",
+        testMode: userStates[userId].testMode,
+        cart: [],
+      };
+      const { menu, availableProducts } = await getMainMenu();
+      userStates[userId].availableProducts = availableProducts;
+      console.log(
+        `[BOT] Transición a estado: menu (nuevo pedido después de completar)`
+      );
+      return menu;
+    } else {
+      console.log(
+        `[BOT] Usuario en estado order-complete, mensaje: '${userMessage}'`
+      );
+      return `✅ *¡Tu pedido ya fue confirmado!*\n\nSi quieres hacer otro pedido, escribe "menu" para empezar de nuevo.`;
+    }
   }
 
   // Si no hay respuesta válida
