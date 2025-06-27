@@ -125,6 +125,27 @@ async function getAddOnsMenu() {
   }
 }
 
+// Función para mostrar menú de sabores de salsa
+async function getSauceFlavourMenu() {
+  try {
+    const { data: sauces } = await axios.get(
+      "http://localhost:3000/generic/sauce"
+    );
+    const availableSauces = sauces.filter((s) => !s.outOfStock);
+    let menu = `🍯 *Elige un sabor de salsa:*\n\n`;
+    availableSauces.forEach((s, i) => {
+      menu += `${numberToEmoji(i + 1)} *${s.name}*\n`;
+    });
+    menu += `\nResponde con el número de la opción (1-${availableSauces.length})`;
+    return { menu, availableSauces };
+  } catch (e) {
+    return {
+      menu: "❌ Error al obtener los sabores de salsa. Intenta más tarde.",
+      availableSauces: [],
+    };
+  }
+}
+
 // Helper para mostrar el carrito
 function renderCart(cart) {
   if (!cart || cart.length === 0) return "🛒 *Tu carrito está vacío.*";
@@ -141,12 +162,19 @@ function renderCart(cart) {
       const addOnsArr = item["addOns"];
       const addOnsData = item.selectedAddOnsData || [];
       addOnsArr.forEach((name, idx) => {
-        // Buscar si hay info de cantidad
+        // Buscar si hay info de cantidad y sabor de salsa
         const data = addOnsData.find((a) => a && a.name === name);
-        if (data && data.quantity) {
-          msg += `\n     - ${name} x${data.quantity} ($${data.price}) = $${
-            data.price * data.quantity
-          }`;
+        if (data) {
+          let addOnDisplay = `\n     - ${name}`;
+          if (data.sauceFlavour) {
+            addOnDisplay += ` (${data.sauceFlavour})`;
+          }
+          if (data.quantity) {
+            addOnDisplay += ` x${data.quantity} ($${data.price}) = $${
+              data.price * data.quantity
+            }`;
+          }
+          msg += addOnDisplay;
         } else {
           msg += `\n     - ${name}`;
         }
@@ -177,7 +205,10 @@ async function showIceCreamConfirmation(userId) {
 
   // Agregar add-ons si existen
   if (selectedAddOns.length > 0) {
-    cartItem["addOns"] = selectedAddOns.map((a) => a.name);
+    cartItem["addOns"] = selectedAddOns.map((a) => {
+      // Si tiene sabor de salsa, usar el displayName, sino usar el nombre normal
+      return a.displayName || a.name;
+    });
     cartItem["addOnsPrice"] = selectedAddOns.reduce(
       (sum, a) => sum + a.price * (a.quantity || 1),
       0
@@ -580,6 +611,15 @@ async function handleBotMessage(message) {
       userStates[userId].state = "ask-addon-quantity";
       return `🔢 *¿Cuántos* ${selectedAddOn.name.toUpperCase()} *quieres agregar?*\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
     }
+    // Si el add-on es el que necesita selección de salsa
+    if (selectedAddOn._id === "64f5045a4cd7d05507034a2f") {
+      userStates[userId].selectedAddOn = selectedAddOn;
+      userStates[userId].state = "sauce-flavour-selection";
+      const { menu, availableSauces } = await getSauceFlavourMenu();
+      userStates[userId].availableSauces = availableSauces;
+      console.log(`[BOT] Transición a estado: sauce-flavour-selection`);
+      return menu;
+    }
     userStates[userId].selectedAddOn = selectedAddOn;
     userStates[userId].state = "confirm-add-on";
     console.log(`[BOT] Transición a estado: confirm-add-on`);
@@ -608,6 +648,50 @@ async function handleBotMessage(message) {
       selectedAddOn.price
     }\n💲Total: $${
       selectedAddOn.price * qty
+    }\n\n¿Confirmas este add-on?\n1️⃣ Sí\n2️⃣ No`;
+  }
+
+  // Selección de sabor de salsa
+  if (userStates[userId].state === "sauce-flavour-selection") {
+    console.log(
+      `[BOT] En estado sauce-flavour-selection, mensaje: '${userMessage}'`
+    );
+    const availableSauces = userStates[userId].availableSauces;
+    console.log(
+      `[BOT] Salsas disponibles:`,
+      availableSauces ? availableSauces.length : "undefined"
+    );
+
+    const option = parseInt(userMessage, 10);
+    console.log(
+      `[BOT] Opción parseada: ${option}, rango válido: 1 a ${availableSauces.length}`
+    );
+
+    if (isNaN(option) || option < 1 || option > availableSauces.length) {
+      const { menu } = await getSauceFlavourMenu();
+      console.log(`[BOT] Opción inválida en sauce-flavour-selection`);
+      return `❌ Por favor, selecciona una opción válida.\n\n${menu}`;
+    }
+
+    // Usuario eligió un sabor de salsa
+    const selectedSauce = availableSauces[option - 1];
+    const selectedAddOn = userStates[userId].selectedAddOn;
+
+    // Guardar add-on con el sabor de salsa seleccionado
+    const addOnWithSauce = {
+      ...selectedAddOn,
+      sauceFlavour: selectedSauce.name,
+      displayName: `${selectedAddOn.name} - ${selectedSauce.name}`,
+    };
+    userStates[userId].selectedAddOn = addOnWithSauce;
+    userStates[userId].state = "confirm-add-on";
+    console.log(
+      `[BOT] Transición a estado: confirm-add-on (con salsa: ${selectedSauce.name})`
+    );
+    return `🍫 *Add-on seleccionado:* ${selectedAddOn.name.toUpperCase()}\n🍯 Sabor: ${
+      selectedSauce.name
+    }\n💲Precio: $${
+      selectedAddOn.price
     }\n\n¿Confirmas este add-on?\n1️⃣ Sí\n2️⃣ No`;
   }
 
@@ -873,7 +957,7 @@ async function shouldIgnoreMessage(message) {
   // Ignore messages from users who are talking to a human
   const isUserWithHumanSupport = usersWithHumanSupport.has(message.from);
 
-  const reasonsToIgnoreMessage = [];
+  const reasonsToIgnoreMessage = Array.from([]);
 
   if (isGroupChat) reasonsToIgnoreMessage.push("isGroupChat");
   if (isArchived) reasonsToIgnoreMessage.push("isArchived");
