@@ -53,9 +53,39 @@ client.on("message", async (message) => {
       console.log("Respuesta generada:", response);
 
       // Solo responder si hay una respuesta válida
-      if (response) {
-        await message.reply(response);
-        console.log("Respuesta enviada al usuario");
+      if (
+        response &&
+        typeof response === "string" &&
+        response.trim().length > 0
+      ) {
+        console.log("Intentando enviar mensaje a:", message.from);
+        console.log("Longitud del mensaje:", response.length);
+
+        // Delay para que suene el teléfono del administrador
+        console.log("⏰ Esperando 3 segundos para notificación...");
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        try {
+          // Enviar mensaje directamente con la versión actualizada
+          await client.sendMessage(message.from, response);
+          console.log("Respuesta enviada exitosamente al usuario");
+        } catch (sendError) {
+          console.error("Error al enviar mensaje:", sendError);
+
+          // Intentar enviar un mensaje de error simple
+          try {
+            await client.sendMessage(
+              message.from,
+              "Lo siento, hubo un error técnico. Por favor, intenta de nuevo."
+            );
+            console.log("Mensaje de error enviado");
+          } catch (finalError) {
+            console.error(
+              "Error final al enviar mensaje de error:",
+              finalError
+            );
+          }
+        }
       } else {
         console.log(
           "No se envió respuesta (puede estar en modo humano o error)"
