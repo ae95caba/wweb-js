@@ -149,40 +149,63 @@ async function getSauceFlavourMenu() {
 // Helper para mostrar el carrito
 function renderCart(cart) {
   if (!cart || cart.length === 0) return "🛒 *Tu carrito está vacío.*";
+
   let msg = "🛒 *Tu carrito actual:*\n";
+  let totalGeneral = 0;
+
   cart.forEach((item, i) => {
     const price = item["totalPrice"] || item.price;
-    msg += `${numberToEmoji(i + 1)} *${item.name.toUpperCase()}* - $${price}`;
+    const precioBase = item.price;
+    totalGeneral += price;
+
+    msg += `${numberToEmoji(i + 1)} *${item.name.toUpperCase()}*\n`;
+    msg += `   💲Precio base: $${precioBase}`;
+
     if (item.flavours && item.flavours.length > 0) {
-      msg += `\n   Sabores: ${item.flavours.join(", ")}`;
+      msg += `\n   🍦 Sabores: ${item.flavours.join(", ")}`;
     }
+
     if (item["addOns"] && item["addOns"].length > 0) {
-      msg += `\n   Add-ons:`;
+      msg += `\n   🍫 Add-ons:`;
       // Mostrar detalles de cada add-on
       const addOnsArr = item["addOns"];
       const addOnsData = item.selectedAddOnsData || [];
       addOnsArr.forEach((name, idx) => {
         // Buscar si hay info de cantidad y sabor de salsa
-        const data = addOnsData.find((a) => a && a.name === name);
+        const data = addOnsData.find(
+          (a) => a && (a.name === name || a.displayName === name)
+        );
         if (data) {
           let addOnDisplay = `\n     - ${name}`;
           if (data.sauceFlavour) {
             addOnDisplay += ` (${data.sauceFlavour})`;
           }
-          if (data.quantity) {
+          if (data.quantity && data.quantity > 1) {
             addOnDisplay += ` x${data.quantity} ($${data.price}) = $${
               data.price * data.quantity
             }`;
+          } else {
+            addOnDisplay += ` ($${data.price})`;
           }
           msg += addOnDisplay;
         } else {
           msg += `\n     - ${name}`;
         }
       });
-      msg += `\n   Total add-ons: +$${item["addOnsPrice"]}`;
+
+      if (item["addOnsPrice"] && item["addOnsPrice"] > 0) {
+        msg += `\n   💲Total add-ons: +$${item["addOnsPrice"]}`;
+      }
     }
+
+    if (item["totalPrice"] && item["totalPrice"] !== item.price) {
+      msg += `\n   💲Total item: $${item["totalPrice"]}`;
+    }
+
     msg += "\n";
   });
+
+  msg += `\n💰 *TOTAL GENERAL: $${totalGeneral}*`;
   return msg;
 }
 
@@ -214,7 +237,16 @@ async function showIceCreamConfirmation(userId) {
       0
     );
     cartItem["totalPrice"] = selectedProduct.price + cartItem["addOnsPrice"];
-    cartItem["selectedAddOnsData"] = selectedAddOns;
+    cartItem["selectedAddOnsData"] = selectedAddOns.map((a) => {
+      // Asegurar que se guarde toda la información del add-on incluyendo precio
+      return {
+        name: a.displayName || a.name,
+        price: a.price,
+        quantity: a.quantity || 1,
+        sauceFlavour: a.sauceFlavour,
+        _id: a._id,
+      };
+    });
   }
 
   userStates[userId].cart.push(cartItem);
@@ -995,4 +1027,5 @@ module.exports = {
   isBusinessHours,
   getBusinessHoursMessage,
   getOutOfHoursMessage,
+  userStates,
 };

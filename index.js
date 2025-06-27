@@ -5,15 +5,13 @@ const {
   shouldIgnoreMessage,
   handleBotMessage,
   getBotStats,
+  userStates,
 } = require("./ai,js");
 
 // Use the session data if it exists
 const client = new Client({
   authStrategy: new LocalAuth(),
 });
-
-// Estado de conversación por usuario
-const userStates = {}; // { [userId]: { state: 'menu' | 'option1' | 'option2' | etc } }
 
 client.on("ready", () => {
   console.log("Client is ready!");
@@ -61,9 +59,14 @@ client.on("message", async (message) => {
         console.log("Intentando enviar mensaje a:", message.from);
         console.log("Longitud del mensaje:", response.length);
 
-        // Delay para que suene el teléfono del administrador
-        console.log("⏰ Esperando 3 segundos para notificación...");
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        // Delay para que suene el teléfono del administrador (solo si NO está en modo test)
+        const userState = userStates[message.from];
+        if (!userState || !userState.testMode) {
+          console.log("⏰ Esperando 3 segundos para notificación...");
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+        } else {
+          console.log("🚀 Modo test activado - sin delay");
+        }
 
         try {
           // Enviar mensaje directamente con la versión actualizada
