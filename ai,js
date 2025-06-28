@@ -410,10 +410,8 @@ async function handleBotMessage(message) {
         )}\n\n¿Quieres agregar otro producto?\n1️⃣ Sí\n2️⃣ No`;
       }
     } else if (userMessage === "2" || userMessage === "no") {
-      userStates[userId] = {
-        state: "menu",
-        testMode: userStates[userId].testMode,
-      };
+      // Preservar el carrito y solo cambiar el estado
+      userStates[userId].state = "menu";
       const { menu, availableProducts: newProducts } = await getMainMenu();
       userStates[userId].availableProducts = newProducts;
       console.log(`[BOT] Transición a estado: menu (producto no confirmado)`);
@@ -820,10 +818,8 @@ async function handleBotMessage(message) {
   // Después de confirmar sabores de helado
   if (userStates[userId].state === "show-flavour-confirmation") {
     if (userMessage === "1" || userMessage === "sí" || userMessage === "si") {
-      userStates[userId] = {
-        state: "menu",
-        testMode: userStates[userId].testMode,
-      };
+      // Preservar el carrito y solo cambiar el estado
+      userStates[userId].state = "menu";
       const { menu, availableProducts: newProducts } = await getMainMenu();
       userStates[userId].availableProducts = newProducts;
       console.log(
