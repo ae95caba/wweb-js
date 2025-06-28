@@ -482,9 +482,12 @@ async function handleBotMessage(message) {
 
     if (userMessage === "1" || userMessage === "sí" || userMessage === "si") {
       if (selectedOptions.length < maxFlavours) {
+        const remaining = maxFlavours - selectedOptions.length;
         userStates[userId].state = "add-more-flavour";
         console.log(`[BOT] Transición a estado: add-more-flavour`);
-        return `Aún puedes elegir un sabor más, ¿quieres hacerlo?\n1️⃣ Sí\n2️⃣ No`;
+        return `Aún puedes elegir ${remaining} sabor${
+          remaining > 1 ? "es" : ""
+        } más, ¿quieres hacerlo?\n1️⃣ Sí\n2️⃣ No`;
       } else {
         // Guardar sabores confirmados y ir al menú de add-ons
         console.log(`[BOT] Sabores completos, guardando y yendo a add-ons`);
@@ -561,7 +564,10 @@ async function handleBotMessage(message) {
       return menu;
     } else {
       console.log(`[BOT] Respuesta inválida en add-more-flavour`);
-      return `Por favor responde con 1 (sí) o 2 (no).\n\nAún puedes elegir un sabor más, ¿quieres hacerlo?\n1️⃣ Sí\n2️⃣ No`;
+      const remaining = maxFlavours - selectedOptions.length;
+      return `Por favor responde con 1 (sí) o 2 (no).\n\nAún puedes elegir ${remaining} sabor${
+        remaining > 1 ? "es" : ""
+      } más, ¿quieres hacerlo?\n1️⃣ Sí\n2️⃣ No`;
     }
   }
 
