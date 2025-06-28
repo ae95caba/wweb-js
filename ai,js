@@ -89,11 +89,16 @@ async function getFlavourMenu() {
       "http://localhost:3000/generic/flavour"
     );
     const availableFlavours = flavours.filter((f) => !f.outOfStock);
-    let menu = `🍦 *Elige un sabor de helado:*\n\n`;
+    let menu = `🍦 *Elige los sabores de helado:*\n\n`;
     availableFlavours.forEach((f, i) => {
       menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
     });
-    menu += `\nResponde con el número de la opción (1-${availableFlavours.length})`;
+    menu += `\n💡 *Puedes elegir múltiples sabores de una vez*\n`;
+    menu += `📝 *Ejemplos:*\n`;
+    menu += `• Para elegir solo Vainilla: *1*\n`;
+    menu += `• Para elegir Vainilla y Chocolate: *1 2*\n`;
+    menu += `• Para elegir Vainilla, Chocolate y Frutilla: *1 2 3*\n`;
+
     return { menu, availableFlavours };
   } catch (e) {
     return {
@@ -394,10 +399,7 @@ async function handleBotMessage(message) {
         console.log(
           `[BOT] Transición a estado: ice-cream-flavour (maxFlavours: ${userStates[userId].maxFlavours})`
         );
-        return (
-          menu +
-          `\n\n*Puedes elegir hasta ${userStates[userId].maxFlavours} sabores. Ejemplo: 1 3 5*`
-        );
+        return menu;
       } else {
         // Agregar producto al carrito directamente
         userStates[userId].cart.push({
@@ -450,7 +452,14 @@ async function handleBotMessage(message) {
     ) {
       const { menu } = await getFlavourMenu();
       console.log(`[BOT] Selección de sabores inválida`);
-      return `❌ Por favor, selecciona hasta ${maxFlavours} sabores válidos.\n\n${menu}\n\n*Ejemplo: 1 3 5*`;
+      return (
+        `❌ *Selección inválida*\n\n💡 *Recuerda:*\n` +
+        `• Puedes elegir hasta ${maxFlavours} sabor${
+          maxFlavours > 1 ? "es" : ""
+        }\n` +
+        `• Usa números del 1 al ${availableFlavours.length}\n` +
+        `• Separa con espacios: *1 3 5*\n\n${menu}`
+      );
     }
     userStates[userId].pendingFlavours = selectedOptions;
     const selectedFlavours = selectedOptions.map(
@@ -510,7 +519,8 @@ async function handleBotMessage(message) {
       return await getFlavourMenu().then(
         ({ menu }) =>
           menu +
-          `\n\n*Puedes elegir hasta ${maxFlavours} sabores. Ejemplo: 1 3 5*`
+          `\n\n💡 *Recuerda: Puedes elegir hasta ${maxFlavours} sabores de una vez*\n` +
+          `📝 *Ejemplo: 1 3 5* (para elegir los sabores 1, 3 y 5)`
       );
     } else {
       console.log(`[BOT] Respuesta inválida en confirm-flavours`);
