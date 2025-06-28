@@ -56,8 +56,10 @@ async function getMainMenu() {
     const { data: products } = await axios.get(
       "http://localhost:3000/products"
     );
-    // Filtrar productos disponibles
-    const availableProducts = products.filter((p) => !p.outOfStock);
+    // Filtrar productos disponibles y excluir add-ons (se seleccionan en el submenú)
+    const availableProducts = products.filter(
+      (p) => !p.outOfStock && p.type !== "add-on"
+    );
     let menu = `🤖 *Bienvenido al Bot*\n\n${getBusinessHoursMessage()}\n\nPor favor, selecciona un producto o una opción:\n\n`;
     availableProducts.forEach((p, i) => {
       menu += `${numberToEmoji(i + 1)} *${p.name.toUpperCase()}* - $${
