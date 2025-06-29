@@ -60,7 +60,7 @@ async function getMainMenu() {
     const availableProducts = products.filter(
       (p) => !p.outOfStock && p.type !== "add-on"
     );
-    let menu = `🤖 *Bienvenido al Bot*\n\n${getBusinessHoursMessage()}\n\nPor favor, selecciona un producto o una opción:\n\n`;
+    let menu = `🍦 *¡Gracias por comunicarte con Dulce Tentación!*\n\n📱 *También puedes ver nuestro catálogo completo online:*\n🌐 https://dulce-tentacion-mp.netlify.app/\n\nPor favor, selecciona un producto o una opción:\n\n`;
     availableProducts.forEach((p, i) => {
       menu += `${numberToEmoji(i + 1)} *${p.name.toUpperCase()}* - $${
         p.price
@@ -73,6 +73,7 @@ async function getMainMenu() {
     menu += `\n\nResponde con el número de la opción (1-${
       availableProducts.length + 2
     })`;
+    menu += `\n\n${getBusinessHoursMessage()}`;
     return { menu, availableProducts };
   } catch (e) {
     return {

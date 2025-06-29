@@ -62,8 +62,8 @@ client.on("message", async (message) => {
         // Delay para que suene el teléfono del administrador (solo si NO está en modo test)
         const userState = userStates[message.from];
         if (!userState || !userState.testMode) {
-          console.log("⏰ Esperando 3 segundos para notificación...");
-          await new Promise((resolve) => setTimeout(resolve, 3000));
+          console.log("⏰ Esperando 1.5 segundos para notificación...");
+          await new Promise((resolve) => setTimeout(resolve, 1500));
         } else {
           console.log("🚀 Modo test activado - sin delay");
         }
