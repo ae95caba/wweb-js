@@ -167,7 +167,15 @@ function renderCart(cart) {
     totalGeneral += price;
 
     msg += `${numberToEmoji(i + 1)} *${item.name.toUpperCase()}*\n`;
-    msg += `   💲Precio base: $${precioBase}`;
+
+    // Mostrar cantidad si existe
+    if (item.quantity && item.quantity > 1) {
+      msg += `   🔢 Cantidad: ${item.quantity}\n`;
+      msg += `   💲Precio unitario: $${precioBase}\n`;
+      msg += `   💲Total: $${price}`;
+    } else {
+      msg += `   💲Precio: $${precioBase}`;
+    }
 
     if (item.flavours && item.flavours.length > 0) {
       msg += `\n   🍦 Sabores: ${item.flavours.join(", ")}`;
@@ -401,6 +409,16 @@ async function handleBotMessage(message) {
           `[BOT] Transición a estado: ice-cream-flavour (maxFlavours: ${userStates[userId].maxFlavours})`
         );
         return menu;
+      } else if (
+        selectedProduct.type === "frozen-treat" &&
+        !selectedProduct.apiRoute
+      ) {
+        // Productos frozen-treat sin apiRoute necesitan selección de cantidad
+        userStates[userId].state = "ask-frozen-treat-quantity";
+        console.log(`[BOT] Transición a estado: ask-frozen-treat-quantity`);
+        return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n💲Precio unitario: $${
+          selectedProduct.price
+        }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú.*`;
       } else {
         // Agregar producto al carrito directamente
         userStates[userId].cart.push({
@@ -698,6 +716,46 @@ async function handleBotMessage(message) {
     }\n💲Total: $${
       selectedAddOn.price * qty
     }\n\n¿Confirmas este add-on?\n1️⃣ Sí\n2️⃣ No`;
+  }
+
+  // Preguntar cantidad para productos frozen-treat sin apiRoute
+  if (userStates[userId].state === "ask-frozen-treat-quantity") {
+    const availableProducts = userStates[userId].availableProducts;
+    const selectedProduct = availableProducts.find(
+      (p) => p._id === userStates[userId].selectedProductId
+    );
+    const qty = parseInt(userMessage, 10);
+
+    if (isNaN(qty) || qty < 0) {
+      return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n💲Precio unitario: $${
+        selectedProduct.price
+      }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú.*`;
+    }
+
+    if (qty === 0) {
+      userStates[userId].state = "menu";
+      const { menu, availableProducts: newProducts } = await getMainMenu();
+      userStates[userId].availableProducts = newProducts;
+      console.log(`[BOT] Transición a estado: menu (frozen-treat cancelado)`);
+      return menu;
+    }
+
+    // Agregar producto con cantidad al carrito
+    userStates[userId].cart.push({
+      name: selectedProduct.name,
+      price: selectedProduct.price,
+      _id: selectedProduct._id,
+      quantity: qty,
+      totalPrice: selectedProduct.price * qty,
+    });
+
+    userStates[userId].state = "show-product-info";
+    console.log(
+      `[BOT] Transición a estado: show-product-info (frozen-treat con cantidad: ${qty})`
+    );
+    return `${renderCart(
+      userStates[userId].cart
+    )}\n\n¿Quieres agregar otro producto?\n1️⃣ Sí\n2️⃣ No`;
   }
 
   // Selección de sabor de salsa
