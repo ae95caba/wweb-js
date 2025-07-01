@@ -977,7 +977,7 @@ async function handleBotMessage(message) {
         userStates[userId].cart
       )}\n\n📍 *Dirección de entrega:*\n${
         userStates[userId].deliveryAddress
-      }\n\n🚚 Tu pedido será entregado en aproximadamente 30-45 minutos.\n\n¡Gracias por tu compra! Si quieres hacer otro pedido, escribe "menu".`;
+      }\n\n💬 En unos momentos una persona se conectará para acordar el método de pago y costo de envío (según la dirección).`;
     } else if (userMessage === "2" || userMessage === "no") {
       userStates[userId].state = "ask-address";
       console.log(
@@ -996,7 +996,7 @@ async function handleBotMessage(message) {
     console.log(`[BOT] Transición a estado: order-complete (retiro)`);
     return `✅ *¡Pedido confirmado para retiro!*\n\n${renderCart(
       userStates[userId].cart
-    )}\n\n🏪 *Retiro en local*\n📍 Av. Principal 123, Centro\nHorarios: Lunes a Viernes 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\n⏰ Tu pedido estará listo en aproximadamente 15-20 minutos.\n\n¡Gracias por tu compra! Si quieres hacer otro pedido, escribe "menu".`;
+    )}\n\n🏪 *Retiro en local*\n📍 Av. Principal 123, Centro\nHorarios: Lunes a Viernes 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\n💬 En unos momentos una persona se conectará para acordar el método de pago.`;
   }
 
   // Pedido completado - solo responder a comandos específicos
