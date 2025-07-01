@@ -383,7 +383,19 @@ async function handleBotMessage(message) {
     const selectedProduct = availableProducts[option - 1];
     console.log(`[BOT] Producto seleccionado:`, selectedProduct);
     userStates[userId].selectedProductId = selectedProduct._id;
-    // Mostrar confirmación del producto
+    // Si es frozen-treat, saltar confirmación y pedir cantidad directamente
+    if (selectedProduct.type === "frozen-treat" && !selectedProduct.apiRoute) {
+      userStates[userId].state = "ask-frozen-treat-quantity";
+      console.log(
+        `[BOT] Transición directa a estado: ask-frozen-treat-quantity (sin confirmación)`
+      );
+      return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n${
+        selectedProduct.description ? selectedProduct.description + "\n" : ""
+      }💲Precio unitario: $${
+        selectedProduct.price
+      }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú.*`;
+    }
+    // Mostrar confirmación del producto para los demás casos
     userStates[userId].state = "confirm-product";
     console.log(`[BOT] Transición a estado: confirm-product`);
     return `🍰 *${selectedProduct.name.toUpperCase()}*\n\n${
@@ -416,7 +428,9 @@ async function handleBotMessage(message) {
         // Productos frozen-treat sin apiRoute necesitan selección de cantidad
         userStates[userId].state = "ask-frozen-treat-quantity";
         console.log(`[BOT] Transición a estado: ask-frozen-treat-quantity`);
-        return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n💲Precio unitario: $${
+        return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n${
+          selectedProduct.description ? selectedProduct.description + "\n" : ""
+        }💲Precio unitario: $${
           selectedProduct.price
         }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú.*`;
       } else {
@@ -676,7 +690,9 @@ async function handleBotMessage(message) {
     ) {
       userStates[userId].selectedAddOn = selectedAddOn;
       userStates[userId].state = "ask-addon-quantity";
-      return `🔢 *¿Cuántos* ${selectedAddOn.name.toUpperCase()} *quieres agregar?*\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
+      return `🔢 *¿Cuántos* ${selectedAddOn.name.toUpperCase()} *quieres agregar?*\n\n${
+        selectedAddOn.description ? selectedAddOn.description + "\n" : ""
+      }Por favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
     }
     // Si el add-on es el que necesita selección de salsa
     if (selectedAddOn._id === "64f5045a4cd7d05507034a2f") {
@@ -700,7 +716,9 @@ async function handleBotMessage(message) {
     const selectedAddOn = userStates[userId].selectedAddOn;
     const qty = parseInt(userMessage, 10);
     if (isNaN(qty) || qty < 0) {
-      return `🔢 *¿Cuántos* ${selectedAddOn.name.toUpperCase()} *quieres agregar?*\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
+      return `🔢 *¿Cuántos* ${selectedAddOn.name.toUpperCase()} *quieres agregar?*\n\n${
+        selectedAddOn.description ? selectedAddOn.description + "\n" : ""
+      }Por favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
     }
     if (qty === 0) {
       userStates[userId].state = "add-ons-selection";
@@ -727,7 +745,9 @@ async function handleBotMessage(message) {
     const qty = parseInt(userMessage, 10);
 
     if (isNaN(qty) || qty < 0) {
-      return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n💲Precio unitario: $${
+      return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n${
+        selectedProduct.description ? selectedProduct.description + "\n" : ""
+      }💲Precio unitario: $${
         selectedProduct.price
       }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú.*`;
     }
