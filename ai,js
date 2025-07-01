@@ -946,7 +946,7 @@ async function handleBotMessage(message) {
       console.log(`[BOT] Transición a estado: pickup-confirmation`);
       return `🏪 *Retiro en local confirmado*\n\n${renderCart(
         userStates[userId].cart
-      )}\n\n📍 *Dirección del local:*\nAv. Principal 123, Centro\nHorarios: Lunes a Viernes 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\n¡Gracias por tu pedido! Te avisaremos cuando esté listo para retirar.`;
+      )}\n\n📍 *Dirección del local:*\nEl Malambo 1733 entre Dorrego y Beruti, Barrio Rayito de Sol\n🗺️ [Ver en Google Maps](https://maps.app.goo.gl/YPC6VQf24fbh9rta9)\n\nHorarios: Lunes a Viernes 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\n¡Gracias por tu pedido! Te avisaremos cuando esté listo para retirar.`;
     } else {
       console.log(`[BOT] Respuesta inválida en delivery-option`);
       return `❌ Por favor, selecciona una opción válida.\n\n🚚 *¿Cómo quieres recibir tu pedido?*\n\n1️⃣ 🏠 *Envío a domicilio*\n2️⃣ 🏪 *Retirar en el local*`;
@@ -996,7 +996,7 @@ async function handleBotMessage(message) {
     console.log(`[BOT] Transición a estado: order-complete (retiro)`);
     return `✅ *¡Pedido confirmado para retiro!*\n\n${renderCart(
       userStates[userId].cart
-    )}\n\n🏪 *Retiro en local*\n📍 Av. Principal 123, Centro\nHorarios: Lunes a Viernes 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\n💬 En unos momentos una persona se conectará para acordar el método de pago.`;
+    )}\n\n🏪 *Retiro en local*\n📍 El Malambo 1733 entre Dorrego y Beruti, Barrio Rayito de Sol\n🗺️ [Ver en Google Maps](https://maps.app.goo.gl/YPC6VQf24fbh9rta9)\n\nHorarios: Lunes a Viernes 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\n💬 En unos momentos una persona se conectará para acordar el método de pago.`;
   }
 
   // Pedido completado - solo responder a comandos específicos
