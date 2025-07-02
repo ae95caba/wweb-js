@@ -63,23 +63,21 @@ async function getMainMenu({ allowCancelAddProduct = false } = {}) {
     const availableProducts = products.filter(
       (p) => !p.outOfStock && p.type !== "add-on"
     );
-    let menu = `🍦 *¡Gracias por comunicarte con Dulce Tentación!*\n\n📱 *También puedes ver nuestro catálogo completo online:*\n🌐 https://dulce-tentacion-mp.netlify.app/\n\nPor favor, selecciona un producto o una opción:\n\n`;
+    let menu = `🍦 *¡Gracias por comunicarte con Dulce Tentación!*\n\n📱 *También puedes ver nuestro catálogo completo online:*\n🌐 https://dulce-tentacion-mp.netlify.app/\n\n`;
+    menu += `─────────────\n`;
+    menu += `0️⃣ *💬 HABLAR CON UNA PERSONA REAL*\n`;
+    menu += `─────────────\n`;
     availableProducts.forEach((p, i) => {
       menu += `${numberToEmoji(i + 1)} *${p.name.toUpperCase()}* - $${
         p.price
       }\n`;
     });
-    menu += `\n${numberToEmoji(
-      availableProducts.length + 1
-    )} *💬 Hablar con una persona real*`;
+    let lastOptionNum = availableProducts.length + 1;
     if (allowCancelAddProduct) {
-      menu += `\n${numberToEmoji(
-        availableProducts.length + 2
-      )} *No agregar más productos*`;
+      menu += `\n${numberToEmoji(lastOptionNum)} *No agregar más productos*`;
+      lastOptionNum++;
     }
-    menu += `\n\nResponde con el número de la opción (1-${
-      availableProducts.length + (allowCancelAddProduct ? 2 : 1)
-    })`;
+    menu += `\n\nResponde con el número de la opción (0-${lastOptionNum - 1})`;
     menu += `\n\n${getBusinessHoursMessage()}`;
     return { menu, availableProducts };
   } catch (e) {
@@ -382,23 +380,22 @@ async function handleBotMessage(message) {
 
     const option = parseInt(userMessage, 10);
     console.log(`[BOT] Opción parseada: ${option}, esNaN: ${isNaN(option)}`);
-    console.log(`[BOT] Rango válido: 1 a ${availableProducts.length + 1}`);
+    console.log(`[BOT] Rango válido: 0 a ${availableProducts.length + 1}`);
 
-    if (isNaN(option) || option < 1 || option > availableProducts.length + 1) {
-      const { menu } = await getMainMenu();
+    if (isNaN(option) || option < 0 || option > availableProducts.length + 1) {
+      const { menu } = await getMainMenu({ allowCancelAddProduct: false });
       console.log(`[BOT] Opción inválida en menú principal: ${option}`);
       return `❌ Por favor, selecciona una opción válida.\n\n${menu}`;
     }
 
     console.log(`[BOT] Opción válida seleccionada: ${option}`);
 
-    if (option === availableProducts.length + 1) {
+    if (option === 0) {
       usersWithHumanSupport.add(userId);
       userStates[userId] = {
         state: "human_support",
         testMode: userStates[userId].testMode,
       };
-      console.log(`[BOT] Transición a estado: human_support`);
       return `👨‍💼 *Conectando con una persona real...*\n\n✅ *Bot desactivado para esta conversación*\n\nUn representante se pondrá en contacto contigo pronto. Mientras tanto, puedes escribir libremente y serás atendido por una persona real.`;
     }
 
@@ -950,12 +947,12 @@ async function handleBotMessage(message) {
   if (userStates[userId].state === "add-another-product-menu") {
     const availableProducts = userStates[userId].availableProducts;
     const option = parseInt(userMessage, 10);
-    const cancelOption = availableProducts.length + 2;
-    if (isNaN(option) || option < 1 || option > cancelOption) {
+    const cancelOption = availableProducts.length + 1;
+    if (isNaN(option) || option < 0 || option > cancelOption) {
       const { menu } = await getMainMenu({ allowCancelAddProduct: true });
       return `❌ Por favor, selecciona una opción válida.\n\n${menu}`;
     }
-    if (option === availableProducts.length + 1) {
+    if (option === 0) {
       usersWithHumanSupport.add(userId);
       userStates[userId] = {
         state: "human_support",
