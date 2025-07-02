@@ -69,9 +69,8 @@ async function getMainMenu() {
     menu += `\n${numberToEmoji(
       availableProducts.length + 1
     )} *💬 Hablar con una persona real*`;
-    menu += `\n${numberToEmoji(availableProducts.length + 2)} *Salir*`;
     menu += `\n\nResponde con el número de la opción (1-${
-      availableProducts.length + 2
+      availableProducts.length + 1
     })`;
     menu += `\n\n${getBusinessHoursMessage()}`;
     return { menu, availableProducts };
@@ -375,9 +374,9 @@ async function handleBotMessage(message) {
 
     const option = parseInt(userMessage, 10);
     console.log(`[BOT] Opción parseada: ${option}, esNaN: ${isNaN(option)}`);
-    console.log(`[BOT] Rango válido: 1 a ${availableProducts.length + 2}`);
+    console.log(`[BOT] Rango válido: 1 a ${availableProducts.length + 1}`);
 
-    if (isNaN(option) || option < 1 || option > availableProducts.length + 2) {
+    if (isNaN(option) || option < 1 || option > availableProducts.length + 1) {
       const { menu } = await getMainMenu();
       console.log(`[BOT] Opción inválida en menú principal: ${option}`);
       return `❌ Por favor, selecciona una opción válida.\n\n${menu}`;
@@ -393,14 +392,6 @@ async function handleBotMessage(message) {
       };
       console.log(`[BOT] Transición a estado: human_support`);
       return `👨‍💼 *Conectando con una persona real...*\n\n✅ *Bot desactivado para esta conversación*\n\nUn representante se pondrá en contacto contigo pronto. Mientras tanto, puedes escribir libremente y serás atendido por una persona real.`;
-    }
-    if (option === availableProducts.length + 2) {
-      userStates[userId] = {
-        state: "menu",
-        testMode: userStates[userId].testMode,
-      };
-      console.log(`[BOT] Transición a estado: menu (salir)`);
-      return `👋 *¡Hasta luego!*\n\nGracias por usar nuestro bot. ¡Que tengas un excelente día!\n\nPara volver a empezar, escribe "hola" o "menu"`;
     }
 
     const selectedProduct = availableProducts[option - 1];
