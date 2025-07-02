@@ -54,7 +54,7 @@ function numberToEmoji(n) {
 }
 
 // Función para mostrar el menú principal dinámico
-async function getMainMenu() {
+async function getMainMenu({ allowCancelAddProduct = false } = {}) {
   try {
     const { data: products } = await axios.get(
       "http://localhost:3000/products"
@@ -72,8 +72,13 @@ async function getMainMenu() {
     menu += `\n${numberToEmoji(
       availableProducts.length + 1
     )} *💬 Hablar con una persona real*`;
+    if (allowCancelAddProduct) {
+      menu += `\n${numberToEmoji(
+        availableProducts.length + 2
+      )} *No agregar más productos*`;
+    }
     menu += `\n\nResponde con el número de la opción (1-${
-      availableProducts.length + 1
+      availableProducts.length + (allowCancelAddProduct ? 2 : 1)
     })`;
     menu += `\n\n${getBusinessHoursMessage()}`;
     return { menu, availableProducts };
@@ -916,11 +921,14 @@ async function handleBotMessage(message) {
   // Después de mostrar descripción y precio de un producto (no helado)
   if (userStates[userId].state === "show-product-info") {
     if (userMessage === "1" || userMessage === "sí" || userMessage === "si") {
-      // Solo volver al menú principal, el producto ya está en el carrito
-      userStates[userId].state = "menu";
-      const { menu, availableProducts: newProducts } = await getMainMenu();
+      // Mostrar menú principal con opción de cancelar
+      userStates[userId].state = "add-another-product-menu";
+      const { menu, availableProducts: newProducts } = await getMainMenu({
+        allowCancelAddProduct: true,
+      });
       userStates[userId].availableProducts = newProducts;
-      console.log(`[BOT] Transición a estado: menu (agregar otro producto)`);
+      userStates[userId].lastCart = [...(userStates[userId].cart || [])]; // backup por si cancela
+      console.log(`[BOT] Transición a estado: add-another-product-menu`);
       return menu;
     } else if (userMessage === "2" || userMessage === "no") {
       userStates[userId].state = "delivery-option";
@@ -936,6 +944,55 @@ async function handleBotMessage(message) {
         userStates[userId].cart
       )}\n\n¿Quieres agregar otro producto?\n1️⃣ Sí\n2️⃣ No`;
     }
+  }
+
+  // Nuevo estado para manejar la selección en el menú con opción de cancelar
+  if (userStates[userId].state === "add-another-product-menu") {
+    const availableProducts = userStates[userId].availableProducts;
+    const option = parseInt(userMessage, 10);
+    const cancelOption = availableProducts.length + 2;
+    if (isNaN(option) || option < 1 || option > cancelOption) {
+      const { menu } = await getMainMenu({ allowCancelAddProduct: true });
+      return `❌ Por favor, selecciona una opción válida.\n\n${menu}`;
+    }
+    if (option === availableProducts.length + 1) {
+      usersWithHumanSupport.add(userId);
+      userStates[userId] = {
+        state: "human_support",
+        testMode: userStates[userId].testMode,
+      };
+      return `👨‍💼 *Conectando con una persona real...*\n\n✅ *Bot desactivado para esta conversación*\n\nUn representante se pondrá en contacto contigo pronto. Mientras tanto, puedes escribir libremente y serás atendido por una persona real.`;
+    }
+    if (option === cancelOption) {
+      // El usuario cancela agregar otro producto, ir a delivery-option
+      userStates[userId].state = "delivery-option";
+      userStates[userId].cart =
+        userStates[userId].lastCart || userStates[userId].cart;
+      delete userStates[userId].lastCart;
+      return `${renderCart(
+        userStates[userId].cart
+      )}\n\n🚚 *¿Cómo quieres recibir tu pedido?*\n\n1️⃣ 🏠 *Envío a domicilio*\n2️⃣ 🏪 *Retirar en el local*`;
+    }
+    // Selección de producto normal
+    const selectedProduct = availableProducts[option - 1];
+    userStates[userId].selectedProductId = selectedProduct._id;
+    // Si es frozen-treat, saltar confirmación y pedir cantidad directamente
+    if (selectedProduct.type === "frozen-treat" && !selectedProduct.apiRoute) {
+      userStates[userId].state = "ask-frozen-treat-quantity";
+      return getQuantityPrompt({
+        name: selectedProduct.name,
+        description: selectedProduct.description,
+        price: selectedProduct.price,
+        isAddon: false,
+      });
+    }
+    // Mostrar confirmación del producto para los demás casos
+    userStates[userId].state = "confirm-product";
+    return `🍰 *${selectedProduct.name.toUpperCase()}*\n\n$${
+      selectedProduct.description ? selectedProduct.description + "\n\n" : ""
+    }💲Precio: $${
+      selectedProduct.price
+    }\n\n¿Confirmas este producto?\n1️⃣ Sí\n2️⃣ No`;
   }
 
   // Después de confirmar sabores de helado
