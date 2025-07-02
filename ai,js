@@ -275,6 +275,20 @@ async function showIceCreamConfirmation(userId) {
   )}\n\n¿Quieres agregar otro producto?\n1️⃣ Sí\n2️⃣ No`;
 }
 
+// Formatea la descripción: primera letra mayúscula, salto de línea tras cada punto y al final
+function formatDescription(desc) {
+  if (!desc || typeof desc !== "string") return "";
+  let trimmed = desc.trim();
+  if (trimmed.length === 0) return "";
+  // Primera letra en mayúscula
+  trimmed = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  // Salto de línea después de cada punto (seguido o no de espacio)
+  trimmed = trimmed.replace(/\.(\s+|$)/g, ".\n");
+  // Si no termina en punto, agregar salto de línea al final
+  if (!trimmed.endsWith(".\n")) trimmed += "\n";
+  return trimmed;
+}
+
 // Función principal para manejar mensajes del bot
 async function handleBotMessage(message) {
   const userId = message.from;
@@ -390,7 +404,9 @@ async function handleBotMessage(message) {
         `[BOT] Transición directa a estado: ask-frozen-treat-quantity (sin confirmación)`
       );
       return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n${
-        selectedProduct.description ? selectedProduct.description + "\n" : ""
+        selectedProduct.description
+          ? formatDescription(selectedProduct.description) + "\n"
+          : ""
       }💲Precio unitario: $${
         selectedProduct.price
       }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú.*`;
@@ -399,7 +415,7 @@ async function handleBotMessage(message) {
     userStates[userId].state = "confirm-product";
     console.log(`[BOT] Transición a estado: confirm-product`);
     return `🍰 *${selectedProduct.name.toUpperCase()}*\n\n${
-      selectedProduct.description ? selectedProduct.description + "\n" : ""
+      selectedProduct.description ? selectedProduct.description + "\n\n" : ""
     }💲Precio: $${
       selectedProduct.price
     }\n\n¿Confirmas este producto?\n1️⃣ Sí\n2️⃣ No`;
@@ -428,9 +444,11 @@ async function handleBotMessage(message) {
         // Productos frozen-treat sin apiRoute necesitan selección de cantidad
         userStates[userId].state = "ask-frozen-treat-quantity";
         console.log(`[BOT] Transición a estado: ask-frozen-treat-quantity`);
-        return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n${
-          selectedProduct.description ? selectedProduct.description + "\n" : ""
-        }💲Precio unitario: $${
+        return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n$${
+          selectedProduct.description
+            ? formatDescription(selectedProduct.description) + "\n"
+            : ""
+        }\n💲Precio unitario: $${
           selectedProduct.price
         }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú.*`;
       } else {
@@ -459,8 +477,8 @@ async function handleBotMessage(message) {
         (p) => p._id === userStates[userId].selectedProductId
       );
       console.log(`[BOT] Respuesta inválida en confirm-product`);
-      return `Por favor responde con 1 (sí) o 2 (no).\n\n🍰 *${selectedProduct.name.toUpperCase()}*\n\n${
-        selectedProduct.description ? selectedProduct.description + "\n" : ""
+      return `Por favor responde con 1 (sí) o 2 (no).\n\n🍰 *${selectedProduct.name.toUpperCase()}*\n\n$${
+        selectedProduct.description ? selectedProduct.description + "\n\n" : ""
       }💲Precio: $${
         selectedProduct.price
       }\n\n¿Confirmas este producto?\n1️⃣ Sí\n2️⃣ No`;
@@ -691,8 +709,12 @@ async function handleBotMessage(message) {
       userStates[userId].selectedAddOn = selectedAddOn;
       userStates[userId].state = "ask-addon-quantity";
       return `🔢 *¿Cuántos* ${selectedAddOn.name.toUpperCase()} *quieres agregar?*\n\n${
-        selectedAddOn.description ? selectedAddOn.description + "\n" : ""
-      }Por favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
+        selectedAddOn.description
+          ? formatDescription(selectedAddOn.description) + "\n"
+          : ""
+      }💲Precio unitario: $${
+        selectedAddOn.price
+      }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
     }
     // Si el add-on es el que necesita selección de salsa
     if (selectedAddOn._id === "64f5045a4cd7d05507034a2f") {
@@ -717,8 +739,12 @@ async function handleBotMessage(message) {
     const qty = parseInt(userMessage, 10);
     if (isNaN(qty) || qty < 0) {
       return `🔢 *¿Cuántos* ${selectedAddOn.name.toUpperCase()} *quieres agregar?*\n\n${
-        selectedAddOn.description ? selectedAddOn.description + "\n" : ""
-      }Por favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
+        selectedAddOn.description
+          ? formatDescription(selectedAddOn.description) + "\n"
+          : ""
+      }💲Precio unitario: $${
+        selectedAddOn.price
+      }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
     }
     if (qty === 0) {
       userStates[userId].state = "add-ons-selection";
@@ -746,7 +772,9 @@ async function handleBotMessage(message) {
 
     if (isNaN(qty) || qty < 0) {
       return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n${
-        selectedProduct.description ? selectedProduct.description + "\n" : ""
+        selectedProduct.description
+          ? formatDescription(selectedProduct.description) + "\n"
+          : ""
       }💲Precio unitario: $${
         selectedProduct.price
       }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú.*`;
