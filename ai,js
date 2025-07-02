@@ -289,6 +289,15 @@ function formatDescription(desc) {
   return trimmed;
 }
 
+// Utilidad para mensaje de cantidad de producto o add-on
+function getQuantityPrompt({ name, description, price, isAddon = false }) {
+  return `🔢 *¿Cuántos* ${name.toUpperCase()} *quieres agregar?*\n\n${
+    description ? formatDescription(description) + "\n" : ""
+  }💲Precio unitario: $${price}\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú${
+    isAddon ? " de toppings" : ""
+  }.*`;
+}
+
 // Función principal para manejar mensajes del bot
 async function handleBotMessage(message) {
   const userId = message.from;
@@ -403,13 +412,12 @@ async function handleBotMessage(message) {
       console.log(
         `[BOT] Transición directa a estado: ask-frozen-treat-quantity (sin confirmación)`
       );
-      return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n${
-        selectedProduct.description
-          ? formatDescription(selectedProduct.description) + "\n"
-          : ""
-      }💲Precio unitario: $${
-        selectedProduct.price
-      }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú.*`;
+      return getQuantityPrompt({
+        name: selectedProduct.name,
+        description: selectedProduct.description,
+        price: selectedProduct.price,
+        isAddon: false,
+      });
     }
     // Mostrar confirmación del producto para los demás casos
     userStates[userId].state = "confirm-product";
@@ -444,13 +452,12 @@ async function handleBotMessage(message) {
         // Productos frozen-treat sin apiRoute necesitan selección de cantidad
         userStates[userId].state = "ask-frozen-treat-quantity";
         console.log(`[BOT] Transición a estado: ask-frozen-treat-quantity`);
-        return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n$${
-          selectedProduct.description
-            ? formatDescription(selectedProduct.description) + "\n"
-            : ""
-        }\n💲Precio unitario: $${
-          selectedProduct.price
-        }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú.*`;
+        return getQuantityPrompt({
+          name: selectedProduct.name,
+          description: selectedProduct.description,
+          price: selectedProduct.price,
+          isAddon: false,
+        });
       } else {
         // Agregar producto al carrito directamente
         userStates[userId].cart.push({
@@ -708,13 +715,12 @@ async function handleBotMessage(message) {
     ) {
       userStates[userId].selectedAddOn = selectedAddOn;
       userStates[userId].state = "ask-addon-quantity";
-      return `🔢 *¿Cuántos* ${selectedAddOn.name.toUpperCase()} *quieres agregar?*\n\n${
-        selectedAddOn.description
-          ? formatDescription(selectedAddOn.description) + "\n"
-          : ""
-      }💲Precio unitario: $${
-        selectedAddOn.price
-      }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
+      return getQuantityPrompt({
+        name: selectedAddOn.name,
+        description: selectedAddOn.description,
+        price: selectedAddOn.price,
+        isAddon: true,
+      });
     }
     // Si el add-on es el que necesita selección de salsa
     if (selectedAddOn._id === "64f5045a4cd7d05507034a2f") {
@@ -738,13 +744,12 @@ async function handleBotMessage(message) {
     const selectedAddOn = userStates[userId].selectedAddOn;
     const qty = parseInt(userMessage, 10);
     if (isNaN(qty) || qty < 0) {
-      return `🔢 *¿Cuántos* ${selectedAddOn.name.toUpperCase()} *quieres agregar?*\n\n${
-        selectedAddOn.description
-          ? formatDescription(selectedAddOn.description) + "\n"
-          : ""
-      }💲Precio unitario: $${
-        selectedAddOn.price
-      }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú de toppings.*`;
+      return getQuantityPrompt({
+        name: selectedAddOn.name,
+        description: selectedAddOn.description,
+        price: selectedAddOn.price,
+        isAddon: true,
+      });
     }
     if (qty === 0) {
       userStates[userId].state = "add-ons-selection";
@@ -771,13 +776,12 @@ async function handleBotMessage(message) {
     const qty = parseInt(userMessage, 10);
 
     if (isNaN(qty) || qty < 0) {
-      return `🔢 *¿Cuántos* ${selectedProduct.name.toUpperCase()} *quieres agregar?*\n\n${
-        selectedProduct.description
-          ? formatDescription(selectedProduct.description) + "\n"
-          : ""
-      }💲Precio unitario: $${
-        selectedProduct.price
-      }\n\nPor favor, ingresa un número (por ejemplo: 2).\n\n*Escribe 0 para cancelar y volver al menú.*`;
+      return getQuantityPrompt({
+        name: selectedProduct.name,
+        description: selectedProduct.description,
+        price: selectedProduct.price,
+        isAddon: false,
+      });
     }
 
     if (qty === 0) {
