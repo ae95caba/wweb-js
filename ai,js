@@ -6,6 +6,9 @@ const userStates = {}; // { [userId]: { state: 'menu' | 'product' | 'ice-cream-f
 // Usuarios que están hablando con una persona real (bot desactivado)
 const usersWithHumanSupport = new Set();
 
+// Usuarios muteados temporalmente tras confirmar pedido
+const mutedUsers = {};
+
 // Función para verificar si estamos en horario de atención
 function isBusinessHours() {
   const now = new Date();
@@ -985,11 +988,13 @@ async function handleBotMessage(message) {
       userMessage === "retirar" ||
       userMessage === "local"
     ) {
-      userStates[userId].state = "pickup-confirmation";
-      console.log(`[BOT] Transición a estado: pickup-confirmation`);
-      return `🏪 *Retiro en local confirmado*\n\n${renderCart(
+      // Saltar directamente a order-complete y mutear
+      userStates[userId].state = "order-complete";
+      console.log(`[BOT] Transición a estado: order-complete (retiro)`);
+      mutedUsers[userId] = Date.now() + 60 * 60 * 1000;
+      return `✅ *¡Pedido confirmado para retiro!*\n\n${renderCart(
         userStates[userId].cart
-      )}\n\n📍 *Dirección del local:*\nEl Malambo 1733 entre Dorrego y Beruti, Barrio Rayito de Sol\n🗺️ [Ver en Google Maps](https://maps.app.goo.gl/YPC6VQf24fbh9rta9)\n\nHorarios: Lunes a Viernes 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\n¡Gracias por tu pedido! Te avisaremos cuando esté listo para retirar.`;
+      )}\n\n🏪 *Retiro en local*\n📍 El Malambo 1733 entre Dorrego y Beruti, Barrio Rayito de Sol\n🗺️ [Ver en Google Maps](https://maps.app.goo.gl/YPC6VQf24fbh9rta9)\n\nHorarios: Lunes a Viernes 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\n💬 En unos momentos una persona se conectará para acordar el método de pago.`;
     } else {
       console.log(`[BOT] Respuesta inválida en delivery-option`);
       return `❌ Por favor, selecciona una opción válida.\n\n🚚 *¿Cómo quieres recibir tu pedido?*\n\n1️⃣ 🏠 *Envío a domicilio*\n2️⃣ 🏪 *Retirar en el local*`;
@@ -1016,6 +1021,8 @@ async function handleBotMessage(message) {
     if (userMessage === "1" || userMessage === "sí" || userMessage === "si") {
       userStates[userId].state = "order-complete";
       console.log(`[BOT] Transición a estado: order-complete`);
+      // Mutear usuario por 1 hora
+      mutedUsers[userId] = Date.now() + 60 * 60 * 1000;
       return `✅ *¡Pedido confirmado!*\n\n${renderCart(
         userStates[userId].cart
       )}\n\n📍 *Dirección de entrega:*\n${
@@ -1031,15 +1038,6 @@ async function handleBotMessage(message) {
       console.log(`[BOT] Respuesta inválida en address-confirmation`);
       return `❌ Por favor, responde con 1 (sí) o 2 (no).\n\n📍 *Dirección confirmada:*\n${userStates[userId].deliveryAddress}\n\n¿Es correcta la dirección?\n1️⃣ Sí\n2️⃣ No (escribir de nuevo)`;
     }
-  }
-
-  // Confirmar retiro en local
-  if (userStates[userId].state === "pickup-confirmation") {
-    userStates[userId].state = "order-complete";
-    console.log(`[BOT] Transición a estado: order-complete (retiro)`);
-    return `✅ *¡Pedido confirmado para retiro!*\n\n${renderCart(
-      userStates[userId].cart
-    )}\n\n🏪 *Retiro en local*\n📍 El Malambo 1733 entre Dorrego y Beruti, Barrio Rayito de Sol\n🗺️ [Ver en Google Maps](https://maps.app.goo.gl/YPC6VQf24fbh9rta9)\n\nHorarios: Lunes a Viernes 20:00 - 24:00\nSábados, Domingos y Feriados: 13:00 - 01:00\n\n💬 En unos momentos una persona se conectará para acordar el método de pago.`;
   }
 
   // Pedido completado - solo responder a comandos específicos
@@ -1105,6 +1103,22 @@ async function shouldIgnoreMessage(message) {
   // Ignore messages from users who are talking to a human
   const isUserWithHumanSupport = usersWithHumanSupport.has(message.from);
 
+  // --- IGNORAR SI EL USUARIO ESTÁ MUTEADO POR PEDIDO CONFIRMADO ---
+  const now = Date.now();
+  if (mutedUsers[message.from]) {
+    if (now < mutedUsers[message.from]) {
+      console.log(
+        `[BOT] Usuario ${message.from} está muteado hasta ${new Date(
+          mutedUsers[message.from]
+        ).toLocaleString()}`
+      );
+      return true;
+    } else {
+      // Ya pasó la hora, desmutear
+      delete mutedUsers[message.from];
+    }
+  }
+
   const reasonsToIgnoreMessage = Array.from([]);
 
   if (isGroupChat) reasonsToIgnoreMessage.push("isGroupChat");
@@ -1144,4 +1158,5 @@ module.exports = {
   getBusinessHoursMessage,
   getOutOfHoursMessage,
   userStates,
+  mutedUsers,
 };
