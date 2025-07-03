@@ -37,6 +37,22 @@ client.on("message", async (message) => {
     console.log("De:", message.from);
     console.log("Contenido:", message.body);
     console.log("Tipo:", message.type);
+
+    // Verificar que el mensaje sea reciente (no más de 15 minutos)
+    const messageTimestamp = message._data.timestamp * 1000; // Convertir a milisegundos
+    const currentTime = Date.now();
+    const timeDifference = currentTime - messageTimestamp;
+
+    if (timeDifference > 15 * 60 * 1000) {
+      // 15 minutos
+      console.log(
+        `[message] Mensaje muy antiguo (${Math.round(
+          timeDifference / 1000
+        )}s), ignorando`
+      );
+      return;
+    }
+
     if (!message._data.id.fromMe) {
       // Verificar si debemos ignorar el mensaje
       const shouldIgnore = await shouldIgnoreMessage(message);
