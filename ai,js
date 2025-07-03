@@ -215,12 +215,12 @@ function renderCart(cart) {
       });
 
       if (item["addOnsPrice"] && item["addOnsPrice"] > 0) {
-        msg += `\n   💲Total add-ons: +$${item["addOnsPrice"]}`;
+        msg += `\n   💲Total aderezos: +$${item["addOnsPrice"]}`;
       }
     }
 
     if (item["totalPrice"] && item["totalPrice"] !== item.price) {
-      msg += `\n   💲Total item: $${item["totalPrice"]}`;
+      msg += `\n   💲Total  producto: $${item["totalPrice"]}`;
     }
 
     msg += "\n";
