@@ -187,7 +187,7 @@ function renderCart(cart) {
     }
 
     if (item["addOns"] && item["addOns"].length > 0) {
-      msg += `\n   🍫 Add-ons:`;
+      msg += `\n   🍫 Aderezos:`;
       // Mostrar detalles de cada add-on
       const addOnsArr = item["addOns"];
       const addOnsData = item.selectedAddOnsData || [];
@@ -303,6 +303,31 @@ function getQuantityPrompt({ name, description, price, isAddon = false }) {
   }.*`;
 }
 
+// Utilidad para mensaje de confirmación de add-on
+function getAddOnConfirmationPrompt({
+  name,
+  price,
+  quantity = null,
+  sauceFlavour = null,
+}) {
+  let prompt = `🍫 *Add-on seleccionado:* ${name.toUpperCase()}\n`;
+
+  if (sauceFlavour) {
+    prompt += `🍯 Sabor: ${sauceFlavour}\n`;
+  }
+
+  if (quantity && quantity > 1) {
+    prompt += `Cantidad: ${quantity}\n💲Precio unitario: $${price}\n💲Total: $${
+      price * quantity
+    }\n`;
+  } else {
+    prompt += `💲Precio: $${price}\n`;
+  }
+
+  prompt += `\n¿Confirmas este aderezo?\n1️⃣ Sí\n2️⃣ No`;
+  return prompt;
+}
+
 // Función principal para manejar mensajes del bot
 async function handleBotMessage(message) {
   const userId = message.from;
@@ -360,6 +385,12 @@ async function handleBotMessage(message) {
     userStates[userId].availableProducts = availableProducts;
     console.log(`[BOT] Transición a estado: menu`);
     return menu;
+  }
+
+  // Comando especial para desactivar el bot por 1 hora en el chat actual
+  if (userMessage === "/kill_bot") {
+    mutedUsers[userId] = Date.now() + 60 * 60 * 1000;
+    return "🤖 El bot ha sido desactivado en este chat por 1 hora.";
   }
 
   // Menú principal dinámico
@@ -730,9 +761,10 @@ async function handleBotMessage(message) {
     userStates[userId].selectedAddOn = selectedAddOn;
     userStates[userId].state = "confirm-add-on";
     console.log(`[BOT] Transición a estado: confirm-add-on`);
-    return `🍫 *Add-on seleccionado:* ${selectedAddOn.name.toUpperCase()}\n\n💲Precio: $${
-      selectedAddOn.price
-    }\n\n¿Confirmas este add-on?\n1️⃣ Sí\n2️⃣ No`;
+    return getAddOnConfirmationPrompt({
+      name: selectedAddOn.name,
+      price: selectedAddOn.price,
+    });
   }
 
   // Preguntar cantidad para add-ons especiales
@@ -756,11 +788,11 @@ async function handleBotMessage(message) {
     const addOnWithQty = { ...selectedAddOn, quantity: qty };
     userStates[userId].selectedAddOn = addOnWithQty;
     userStates[userId].state = "confirm-add-on";
-    return `🍫 *Add-on seleccionado:* ${selectedAddOn.name.toUpperCase()}\nCantidad: ${qty}\n💲Precio unitario: $${
-      selectedAddOn.price
-    }\n💲Total: $${
-      selectedAddOn.price * qty
-    }\n\n¿Confirmas este add-on?\n1️⃣ Sí\n2️⃣ No`;
+    return getAddOnConfirmationPrompt({
+      name: selectedAddOn.name,
+      price: selectedAddOn.price,
+      quantity: qty,
+    });
   }
 
   // Preguntar cantidad para productos frozen-treat sin apiRoute
@@ -843,11 +875,11 @@ async function handleBotMessage(message) {
     console.log(
       `[BOT] Transición a estado: confirm-add-on (con salsa: ${selectedSauce.name})`
     );
-    return `🍫 *Add-on seleccionado:* ${selectedAddOn.name.toUpperCase()}\n🍯 Sabor: ${
-      selectedSauce.name
-    }\n💲Precio: $${
-      selectedAddOn.price
-    }\n\n¿Confirmas este add-on?\n1️⃣ Sí\n2️⃣ No`;
+    return getAddOnConfirmationPrompt({
+      name: selectedAddOn.name,
+      price: selectedAddOn.price,
+      sauceFlavour: selectedSauce.name,
+    });
   }
 
   // Confirmación de add-on
@@ -870,11 +902,14 @@ async function handleBotMessage(message) {
       return menu;
     } else {
       console.log(`[BOT] Respuesta inválida en confirm-add-on`);
-      return `Por favor responde con 1 (sí) o 2 (no).\n\n🍫 *Add-on seleccionado:* ${userStates[
-        userId
-      ].selectedAddOn.name.toUpperCase()}\n\n💲Precio: $${
-        userStates[userId].selectedAddOn.price
-      }\n\n¿Confirmas este add-on?\n1️⃣ Sí\n2️⃣ No`;
+      return `Por favor responde con 1 (sí) o 2 (no).\n\n${getAddOnConfirmationPrompt(
+        {
+          name: userStates[userId].selectedAddOn.name,
+          price: userStates[userId].selectedAddOn.price,
+          quantity: userStates[userId].selectedAddOn.quantity,
+          sauceFlavour: userStates[userId].selectedAddOn.sauceFlavour,
+        }
+      )}`;
     }
   }
 
