@@ -6,6 +6,7 @@ const {
   handleBotMessage,
   getBotStats,
   userStates,
+  mutedUsers,
 } = require("./ai,js");
 
 // Use the session data if it exists
@@ -103,6 +104,33 @@ client.on("message", async (message) => {
 client.on("disconnected", (reason) => {
   console.log("Client was disconnected", reason);
   client.initialize(); // Reinitialize the client to prompt for a new QR code
+});
+
+client.on("message_create", async (message) => {
+  try {
+    console.log("\n--- [message_create] Mensaje creado ---");
+    console.log("De:", message.from);
+    console.log("Para:", message.to);
+    console.log("Contenido:", message.body);
+    console.log("Tipo:", message.type);
+    console.log("fromMe:", message._data.id.fromMe);
+
+    const targetNumber = "5491130350056@c.us"; // Tu número de bot
+    const body = message.body ? message.body.trim().toLowerCase() : "";
+    const comandosEspeciales = ["/kill_bot", "/callar bot"];
+    const esComandoEspecial = comandosEspeciales.includes(body);
+
+    // Solo ejecutar si el mensaje lo envía el bot y es un comando especial
+    if (message.from === targetNumber && esComandoEspecial) {
+      const userToMute = message.to;
+      mutedUsers[userToMute] = Date.now() + 60 * 60 * 1000;
+      console.log(
+        `[message_create] Comando ${body} ejecutado: usuario ${userToMute} muteado por 1 hora`
+      );
+    }
+  } catch (err) {
+    console.error("Error en el manejo de message_create:", err);
+  }
 });
 
 // Función para mostrar estadísticas del bot (opcional, para debugging)
