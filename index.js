@@ -9,6 +9,9 @@ const {
   mutedUsers,
 } = require("./ai,js");
 
+// Flag para indicar que se está enviando un mensaje automático
+let isSendingAutoMessage = false;
+
 // Use the session data if it exists
 const client = new Client({
   authStrategy: new LocalAuth(),
@@ -86,18 +89,23 @@ client.on("message", async (message) => {
         }
 
         try {
+          // Marcar que se está enviando un mensaje automático
+          isSendingAutoMessage = true;
+
           // Enviar mensaje directamente con la versión actualizada
-          await client.sendMessage(message.from, response);
+          const sentMessage = await client.sendMessage(message.from, response);
+
           console.log("Respuesta enviada exitosamente al usuario");
         } catch (sendError) {
           console.error("Error al enviar mensaje:", sendError);
 
           // Intentar enviar un mensaje de error simple
           try {
-            await client.sendMessage(
+            const errorMessage = await client.sendMessage(
               message.from,
               "Lo siento, hubo un error técnico. Por favor, intenta de nuevo."
             );
+
             console.log("Mensaje de error enviado");
           } catch (finalError) {
             console.error(
@@ -105,6 +113,9 @@ client.on("message", async (message) => {
               finalError
             );
           }
+        } finally {
+          // Resetear el flag después del envío (exitoso o con error)
+          isSendingAutoMessage = false;
         }
       } else {
         console.log(
@@ -133,12 +144,23 @@ client.on("message_create", async (message) => {
 
     const targetNumber = "5491130350056@c.us"; // Tu número de bot
 
-    // Si el bot envía un mensaje manualmente, desactivar el bot para ese chat
+    // Solo procesar si el mensaje viene del propio bot
     if (message.from === targetNumber) {
+      const messageId = message.id._serialized;
+
+      // Verificar si es un mensaje automático usando el flag
+      if (isSendingAutoMessage) {
+        console.log(
+          `[message_create] Mensaje automático detectado (flag activo), no se silencia el bot`
+        );
+        return;
+      }
+
+      // Si el flag no está activo, es un mensaje manual (enviado por WhatsApp Web)
       const userToMute = message.to;
       mutedUsers[userToMute] = Date.now() + 6 * 60 * 60 * 1000; // Mute por 6 horas
       console.log(
-        `[message_create] Bot desactivado automáticamente para ${userToMute} por mensaje manual`
+        `[message_create] Bot desactivado automáticamente para ${userToMute} por mensaje manual (ID: ${messageId})`
       );
       return;
     }
