@@ -7,6 +7,7 @@ const {
   getBotStats,
   userStates,
   mutedUsers,
+  botMessageTimestamps,
 } = require("./ai,js");
 
 // Use the session data if it exists
@@ -132,17 +133,16 @@ client.on("message_create", async (message) => {
     console.log("fromMe:", message._data.id.fromMe);
 
     const targetNumber = "5491130350056@c.us"; // Tu número de bot
-    const body = message.body ? message.body.trim().toLowerCase() : "";
-    const comandosEspeciales = ["/kill_bot", "/callar bot"];
-    const esComandoEspecial = comandosEspeciales.includes(body);
 
-    // Solo ejecutar si el mensaje lo envía el bot y es un comando especial
-    if (message.from === targetNumber && esComandoEspecial) {
+    // Si el bot envía un mensaje manualmente, desactivar el bot para ese chat
+    if (message.from === targetNumber) {
       const userToMute = message.to;
-      mutedUsers[userToMute] = Date.now() + 60 * 60 * 1000;
+      mutedUsers[userToMute] = Date.now() + 60 * 60 * 1000; // Mute por 1 hora
+      botMessageTimestamps[userToMute] = Date.now(); // Registrar timestamp del mensaje del bot
       console.log(
-        `[message_create] Comando ${body} ejecutado: usuario ${userToMute} muteado por 1 hora`
+        `[message_create] Bot desactivado automáticamente para ${userToMute} por mensaje manual`
       );
+      return;
     }
   } catch (err) {
     console.error("Error en el manejo de message_create:", err);
