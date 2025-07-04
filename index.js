@@ -7,7 +7,6 @@ const {
   getBotStats,
   userStates,
   mutedUsers,
-  botMessageTimestamps,
 } = require("./ai,js");
 
 // Use the session data if it exists
@@ -137,8 +136,7 @@ client.on("message_create", async (message) => {
     // Si el bot envía un mensaje manualmente, desactivar el bot para ese chat
     if (message.from === targetNumber) {
       const userToMute = message.to;
-      mutedUsers[userToMute] = Date.now() + 60 * 60 * 1000; // Mute por 1 hora
-      botMessageTimestamps[userToMute] = Date.now(); // Registrar timestamp del mensaje del bot
+      mutedUsers[userToMute] = Date.now() + 6 * 60 * 60 * 1000; // Mute por 6 horas
       console.log(
         `[message_create] Bot desactivado automáticamente para ${userToMute} por mensaje manual`
       );

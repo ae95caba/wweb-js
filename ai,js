@@ -9,9 +9,6 @@ const usersWithHumanSupport = new Set();
 // Usuarios muteados temporalmente tras confirmar pedido
 const mutedUsers = {};
 
-// Rastrear mensajes enviados por el bot para desactivación automática
-const botMessageTimestamps = {}; // { [userId]: timestamp }
-
 // Función para verificar si estamos en horario de atención
 function isBusinessHours() {
   const now = new Date();
@@ -1211,25 +1208,6 @@ async function shouldIgnoreMessage(message) {
     }
   }
 
-  // --- IGNORAR SI EL BOT HA ENVIADO UN MENSAJE EN LAS ÚLTIMAS 5 HORAS ---
-  if (botMessageTimestamps[message.from]) {
-    const timeSinceBotMessage = now - botMessageTimestamps[message.from];
-    if (timeSinceBotMessage < 5 * 60 * 60 * 1000) {
-      // 5 horas
-      console.log(
-        `[BOT] Usuario ${
-          message.from
-        } ignorado - bot envió mensaje hace ${Math.round(
-          timeSinceBotMessage / 1000
-        )}s`
-      );
-      return true;
-    } else {
-      // Ya pasaron 5 horas, limpiar timestamp
-      delete botMessageTimestamps[message.from];
-    }
-  }
-
   const reasonsToIgnoreMessage = Array.from([]);
 
   if (isGroupChat) reasonsToIgnoreMessage.push("isGroupChat");
@@ -1270,5 +1248,4 @@ module.exports = {
   getOutOfHoursMessage,
   userStates,
   mutedUsers,
-  botMessageTimestamps,
 };
