@@ -1219,6 +1219,12 @@ async function shouldIgnoreMessage(message) {
   }
 
   // --- VERIFICAR ACTIVIDAD RECIENTE EN EL CHAT (ÚLTIMAS 6 HORAS) ---
+  /*IMPORTANTE:En este punto, chat.timestamp representa el timestamp del ÚLTIMO mensaje 
+  ANTES del mensaje actual recibido.Esto se debe a que WhatsApp Web JS aún no ha actualizado 
+  el objeto chat con el nuevo mensaje cuando se ejecuta este código.Por lo tanto, comparar la
+   hora actual con chat.timestamp nos permite saber si hubo actividad reciente ANTES del mensaje 
+   actual.Si el valor es menor a 6 horas, significa que hubo un mensaje previo reciente y se
+    puede mutear el chat correctamente.Si alguna vez se cambia el flujo de eventos, revisar este comportamiento.*/
   try {
     const lastMessageTime = chat.timestamp * 1000; // Convertir a milisegundos
     const currentTime = Date.now();
