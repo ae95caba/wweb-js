@@ -1168,7 +1168,17 @@ async function shouldIgnoreMessage(message) {
 
   const hasImage = message.type === "image";
 
-  const chat = await message.getChat();
+  // Obtener el chat una sola vez
+  let chat;
+  try {
+    chat = await message.getChat();
+  } catch (error) {
+    console.log(
+      `[CHAT] Error al obtener información del chat: ${error.message}`
+    );
+    return false; // Si no podemos obtener el chat, continuamos normalmente
+  }
+
   // Check if the chat is archived
   const isArchived = chat.archived;
   // Ignore status updates (WhatsApp Stories)
@@ -1208,7 +1218,39 @@ async function shouldIgnoreMessage(message) {
     }
   }
 
-  const reasonsToIgnoreMessage = Array.from([]);
+  // --- VERIFICAR ACTIVIDAD RECIENTE EN EL CHAT (ÚLTIMAS 6 HORAS) ---
+  try {
+    const lastMessageTime = chat.timestamp * 1000; // Convertir a milisegundos
+    const currentTime = Date.now();
+    const hoursSinceLastMessage =
+      (currentTime - lastMessageTime) / (1000 * 60 * 60);
+
+    console.log(
+      `[CHAT] Chat ${message.from} - Último mensaje: ${new Date(
+        lastMessageTime
+      ).toLocaleString()}, hace ${hoursSinceLastMessage.toFixed(2)} horas`
+    );
+
+    if (hoursSinceLastMessage < 6) {
+      console.log(
+        `[BOT] Chat ${
+          message.from
+        } tiene mensaje reciente (hace ${hoursSinceLastMessage.toFixed(
+          2
+        )} horas), desactivando bot automáticamente`
+      );
+      // Muteamos al usuario por 6 horas para evitar que el bot interfiera
+      mutedUsers[message.from] = Date.now() + 6 * 60 * 60 * 1000;
+      return true;
+    }
+  } catch (error) {
+    console.log(
+      `[CHAT] Error al procesar timestamp del chat: ${error.message}`
+    );
+    // Si hay error, continuamos normalmente
+  }
+
+  const reasonsToIgnoreMessage = [];
 
   if (isGroupChat) reasonsToIgnoreMessage.push("isGroupChat");
   if (isArchived) reasonsToIgnoreMessage.push("isArchived");
