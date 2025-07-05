@@ -11,6 +11,56 @@ const {
 // Flag para indicar que se está enviando un mensaje automático
 let isSendingAutoMessage = false;
 
+// Historial de estados del flag para poder verificar mensajes pasados
+const autoMessageHistory = [];
+
+// Función para obtener el estado del flag
+function getIsSendingAutoMessage() {
+  return isSendingAutoMessage;
+}
+
+// Función para registrar cambios en el estado del flag
+function setAutoMessageFlag(value) {
+  isSendingAutoMessage = value;
+  autoMessageHistory.push({
+    timestamp: Date.now(),
+    isAuto: value,
+  });
+
+  // Limpiar historial antiguo (más de 1 hora)
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  const filteredHistory = autoMessageHistory.filter(
+    (entry) => entry.timestamp > oneHourAgo
+  );
+  autoMessageHistory.length = 0;
+  autoMessageHistory.push(...filteredHistory);
+}
+
+// Función para verificar si un mensaje fue automático basándose en su timestamp
+function wasMessageAutoAtTime(messageTimestamp) {
+  const msgTime = messageTimestamp * 1000;
+
+  // Buscar el estado del flag más cercano al timestamp del mensaje
+  let closestEntry = null;
+  let minDiff = Infinity;
+
+  for (const entry of autoMessageHistory) {
+    const diff = Math.abs(entry.timestamp - msgTime);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closestEntry = entry;
+    }
+  }
+
+  // Si no hay entradas en el historial o la diferencia es muy grande, asumir que fue manual
+  if (!closestEntry || minDiff > 30 * 1000) {
+    // Más de 30 segundos de diferencia
+    return false;
+  }
+
+  return closestEntry.isAuto;
+}
+
 // Use the session data if it exists
 const client = new Client({
   authStrategy: new LocalAuth(),
@@ -57,7 +107,11 @@ client.on("message", async (message) => {
 
     if (!message._data.id.fromMe) {
       // Verificar si debemos ignorar el mensaje
-      const shouldIgnore = await shouldIgnoreMessage(message);
+      const shouldIgnore = await shouldIgnoreMessage(
+        message,
+        getIsSendingAutoMessage,
+        wasMessageAutoAtTime
+      );
       console.log("¿Debe ignorarse?", shouldIgnore);
       if (shouldIgnore) {
         console.log("Mensaje ignorado por shouldIgnoreMessage");
@@ -89,7 +143,7 @@ client.on("message", async (message) => {
 
         try {
           // Marcar que se está enviando un mensaje automático
-          isSendingAutoMessage = true;
+          setAutoMessageFlag(true);
 
           // Enviar mensaje directamente con la versión actualizada
           const sentMessage = await client.sendMessage(message.from, response);
@@ -114,7 +168,7 @@ client.on("message", async (message) => {
           }
         } finally {
           // Resetear el flag después del envío (exitoso o con error)
-          isSendingAutoMessage = false;
+          setAutoMessageFlag(false);
         }
       } else {
         console.log(
@@ -148,7 +202,7 @@ client.on("message_create", async (message) => {
       const messageId = message.id._serialized;
 
       // Verificar si es un mensaje automático usando el flag
-      if (isSendingAutoMessage) {
+      if (wasMessageAutoAtTime(message._data.timestamp)) {
         console.log(
           `[message_create] Mensaje automático detectado (flag activo), no se silencia el bot`
         );
@@ -180,3 +234,8 @@ function showBotStats() {
 setInterval(showBotStats, 5 * 60 * 1000);
 
 client.initialize();
+
+module.exports = {
+  getIsSendingAutoMessage,
+  wasMessageAutoAtTime,
+};

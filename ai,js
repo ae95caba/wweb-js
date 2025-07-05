@@ -1079,7 +1079,6 @@ async function handleBotMessage(message) {
       // Saltar directamente a order-complete y mutear
       userStates[userId].state = "order-complete";
       console.log(`[BOT] Transición a estado: order-complete (retiro)`);
-      mutedUsers[userId] = Date.now() + 60 * 60 * 1000;
       return `✅ *¡Pedido confirmado para retiro!*\n\n${renderCart(
         userStates[userId].cart
       )}\n\n🏪 *Retirar en:*\n${
@@ -1159,7 +1158,11 @@ async function handleBotMessage(message) {
   return `❌ Comando no reconocido. Escribe "menu" para volver al menú principal.\n\n${menu}`;
 }
 
-async function shouldIgnoreMessage(message) {
+async function shouldIgnoreMessage(
+  message,
+  getIsSendingAutoMessage,
+  wasMessageAutoAtTime
+) {
   let name;
   let log;
   const isFromMe = message._data.id.fromMe;
@@ -1204,49 +1207,60 @@ async function shouldIgnoreMessage(message) {
   // --- VERIFICAR ACTIVIDAD RECIENTE EN EL CHAT (ÚLTIMAS 6 HORAS) ---
   /*
     IMPORTANTE:
-    En este punto, chat.timestamp representa el timestamp del ÚLTIMO mensaje ANTES del mensaje actual recibido.
-    Esto se debe a que WhatsApp Web JS aún no ha actualizado el objeto chat con el nuevo mensaje cuando se ejecuta este código.
-    Por lo tanto, comparar la hora actual con chat.timestamp nos permite saber si hubo actividad reciente ANTES del mensaje actual.
-    SOLO consideramos mensajes del número del bot que NO sean del bot (mensajes manuales del admin).
-    Si el valor es menor a 6 horas, significa que hubo un mensaje manual reciente y se puede mutear el chat correctamente.
+    Verificamos todos los mensajes de las últimas 6 horas para detectar si hubo algún mensaje manual del admin.
+    Si encontramos un mensaje del bot que NO fue automático en las últimas 6 horas, desactivamos el bot.
   */
   try {
-    const lastMessageTime = chat.timestamp * 1000; // Convertir a milisegundos
     const currentTime = Date.now();
-    const hoursSinceLastMessage =
-      (currentTime - lastMessageTime) / (1000 * 60 * 60);
+    const sixHoursAgo = currentTime - 6 * 60 * 60 * 1000;
 
-    // Solo verificar si el último mensaje fue del bot (número del bot) y no fue automático
+    // Obtener mensajes de las últimas 6 horas
+    const messages = await chat.fetchMessages({ limit: 50 }); // Obtener más mensajes para cubrir 6 horas
+
+    // Filtrar mensajes de las últimas 6 horas
+    const recentMessages = messages.filter((msg) => {
+      const msgTime = msg.timestamp * 1000;
+      return msgTime > sixHoursAgo;
+    });
+
+    console.log(
+      `[CHAT] Chat ${message.from} - Revisando ${recentMessages.length} mensajes de las últimas 6 horas`
+    );
+
+    // Verificar si hay algún mensaje manual del admin en las últimas 6 horas
     const targetNumber = "5491130350056@c.us"; // Número del bot
-    const lastMessage = chat.lastMessage;
-
-    if (
-      lastMessage &&
-      lastMessage.from === targetNumber &&
-      lastMessage.fromMe
-    ) {
-      console.log(
-        `[CHAT] Chat ${message.from} - Último mensaje del bot: ${new Date(
-          lastMessageTime
-        ).toLocaleString()}, hace ${hoursSinceLastMessage.toFixed(2)} horas`
+    const hasManualMessage = recentMessages.some((msg) => {
+      // Verificar si es un mensaje del bot que NO fue automático
+      return (
+        msg.from === targetNumber &&
+        msg.fromMe &&
+        !wasMessageAutoAtTime(msg.timestamp)
       );
+    });
 
-      if (hoursSinceLastMessage < 6) {
-        console.log(
-          `[BOT] Chat ${
-            message.from
-          } tiene mensaje manual reciente del admin (hace ${hoursSinceLastMessage.toFixed(
-            2
-          )} horas), desactivando bot automáticamente`
+    if (hasManualMessage) {
+      // Encontrar el mensaje específico del admin para mostrarlo en el log
+      const adminMessage = recentMessages.find((msg) => {
+        return (
+          msg.from === targetNumber &&
+          msg.fromMe &&
+          !wasMessageAutoAtTime(msg.timestamp)
         );
-        // Muteamos al usuario por 6 horas para evitar que el bot interfiera
-        mutedUsers[message.from] = Date.now() + 6 * 60 * 60 * 1000;
-        return true;
-      }
+      });
+
+      console.log(
+        `[BOT] Chat ${message.from} tiene mensaje manual del admin en las últimas 6 horas, desactivando bot automáticamente`
+      );
+      console.log(
+        `[BOT] Mensaje del admin detectado: "${adminMessage.body}" - ${new Date(
+          adminMessage.timestamp * 1000
+        ).toLocaleString()}`
+      );
+      return true;
     }
   } catch (error) {
     console.log(
-      `[CHAT] Error al procesar timestamp del chat: ${error.message}`
+      `[CHAT] Error al procesar historial de mensajes: ${error.message}`
     );
     // Si hay error, continuamos normalmente
   }
