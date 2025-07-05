@@ -1204,67 +1204,6 @@ async function shouldIgnoreMessage(
   // Ignore messages from users who are talking to a human
   const isUserWithHumanSupport = usersWithHumanSupport.has(message.from);
 
-  // --- VERIFICAR ACTIVIDAD RECIENTE EN EL CHAT (ÚLTIMAS 6 HORAS) ---
-  /*
-    IMPORTANTE:
-    Verificamos todos los mensajes de las últimas 6 horas para detectar si hubo algún mensaje manual del admin.
-    Si encontramos un mensaje del bot que NO fue automático en las últimas 6 horas, desactivamos el bot.
-  */
-  try {
-    const currentTime = Date.now();
-    const sixHoursAgo = currentTime - 6 * 60 * 60 * 1000;
-
-    // Obtener mensajes de las últimas 6 horas
-    const messages = await chat.fetchMessages({ limit: 50 }); // Obtener más mensajes para cubrir 6 horas
-
-    // Filtrar mensajes de las últimas 6 horas
-    const recentMessages = messages.filter((msg) => {
-      const msgTime = msg.timestamp * 1000;
-      return msgTime > sixHoursAgo;
-    });
-
-    console.log(
-      `[CHAT] Chat ${message.from} - Revisando ${recentMessages.length} mensajes de las últimas 6 horas`
-    );
-
-    // Verificar si hay algún mensaje manual del admin en las últimas 6 horas
-    const targetNumber = "5491130350056@c.us"; // Número del bot
-    const hasManualMessage = recentMessages.some((msg) => {
-      // Verificar si es un mensaje del bot que NO fue automático
-      return (
-        msg.from === targetNumber &&
-        msg.fromMe &&
-        !wasMessageAutoAtTime(msg.timestamp)
-      );
-    });
-
-    if (hasManualMessage) {
-      // Encontrar el mensaje específico del admin para mostrarlo en el log
-      const adminMessage = recentMessages.find((msg) => {
-        return (
-          msg.from === targetNumber &&
-          msg.fromMe &&
-          !wasMessageAutoAtTime(msg.timestamp)
-        );
-      });
-
-      console.log(
-        `[BOT] Chat ${message.from} tiene mensaje manual del admin en las últimas 6 horas, desactivando bot automáticamente`
-      );
-      console.log(
-        `[BOT] Mensaje del admin detectado: "${adminMessage.body}" - ${new Date(
-          adminMessage.timestamp * 1000
-        ).toLocaleString()}`
-      );
-      return true;
-    }
-  } catch (error) {
-    console.log(
-      `[CHAT] Error al procesar historial de mensajes: ${error.message}`
-    );
-    // Si hay error, continuamos normalmente
-  }
-
   const reasonsToIgnoreMessage = [];
 
   if (isGroupChat) reasonsToIgnoreMessage.push("isGroupChat");
@@ -1276,6 +1215,70 @@ async function shouldIgnoreMessage(
   if (isEmpty) reasonsToIgnoreMessage.push("isEmpty");
   if (isUserWithHumanSupport)
     reasonsToIgnoreMessage.push("isUserWithHumanSupport");
+
+  // Solo verificar actividad reciente si no hay otras razones para ignorar
+  if (reasonsToIgnoreMessage.length === 0) {
+    // --- VERIFICAR ACTIVIDAD RECIENTE EN EL CHAT (ÚLTIMAS 6 HORAS) ---
+    /*
+      IMPORTANTE:
+      Verificamos todos los mensajes de las últimas 6 horas para detectar si hubo algún mensaje manual del admin.
+      Si encontramos un mensaje del bot que NO fue automático en las últimas 6 horas, desactivamos el bot.
+    */
+    try {
+      const currentTime = Date.now();
+      const sixHoursAgo = currentTime - 6 * 60 * 60 * 1000;
+
+      // Obtener mensajes de las últimas 6 horas
+      const messages = await chat.fetchMessages({ limit: 50 }); // Obtener más mensajes para cubrir 6 horas
+
+      // Filtrar mensajes de las últimas 6 horas
+      const recentMessages = messages.filter((msg) => {
+        const msgTime = msg.timestamp * 1000;
+        return msgTime > sixHoursAgo;
+      });
+
+      console.log(
+        `[CHAT] Chat ${message.from} - Revisando ${recentMessages.length} mensajes de las últimas 6 horas`
+      );
+
+      // Verificar si hay algún mensaje manual del admin en las últimas 6 horas
+      const targetNumber = "5491130350056@c.us"; // Número del bot
+      const hasManualMessage = recentMessages.some((msg) => {
+        // Verificar si es un mensaje del bot que NO fue automático
+        return (
+          msg.from === targetNumber &&
+          msg.fromMe &&
+          !wasMessageAutoAtTime(msg.timestamp)
+        );
+      });
+
+      if (hasManualMessage) {
+        // Encontrar el mensaje específico del admin para mostrarlo en el log
+        const adminMessage = recentMessages.find((msg) => {
+          return (
+            msg.from === targetNumber &&
+            msg.fromMe &&
+            !wasMessageAutoAtTime(msg.timestamp)
+          );
+        });
+
+        console.log(
+          `[BOT] Chat ${message.from} tiene mensaje manual del admin en las últimas 6 horas, desactivando bot automáticamente`
+        );
+        console.log(
+          `[BOT] Mensaje del admin detectado: "${
+            adminMessage.body
+          }" - ${new Date(adminMessage.timestamp * 1000).toLocaleString()}`
+        );
+        return true;
+      }
+    } catch (error) {
+      console.log(
+        `[CHAT] Error al procesar historial de mensajes: ${error.message}`
+      );
+      // Si hay error, continuamos normalmente
+    }
+  }
 
   if (reasonsToIgnoreMessage.length > 0) {
     console.log("--------------- START -------------------");
