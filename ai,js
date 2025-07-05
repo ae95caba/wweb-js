@@ -578,11 +578,33 @@ async function handleBotMessage(message) {
     if (userMessage === "1" || userMessage === "sí" || userMessage === "si") {
       if (selectedOptions.length < maxFlavours) {
         const remaining = maxFlavours - selectedOptions.length;
-        userStates[userId].state = "add-more-flavour";
-        console.log(`[BOT] Transición a estado: add-more-flavour`);
-        return `Aún puedes elegir ${remaining} sabor${
-          remaining > 1 ? "es" : ""
-        } más, ¿quieres hacerlo?\n1️⃣ Sí\n2️⃣ No`;
+        const remainingFlavours = availableFlavours
+          .map((f, i) => ({ ...f, idx: i + 1 }))
+          .filter((f) => !selectedOptions.includes(f.idx));
+
+        if (remainingFlavours.length === 0) {
+          // No hay más sabores disponibles, ir directamente a add-ons
+          userStates[userId].confirmedFlavours = selectedFlavours;
+          userStates[userId].state = "add-ons-selection";
+          const { menu, addOns } = await getAddOnsMenu();
+          userStates[userId].availableAddOns = addOns;
+          console.log(
+            `[BOT] Transición a estado: add-ons-selection (sin más sabores disponibles)`
+          );
+          return menu;
+        }
+
+        userStates[userId].state = "add-flavour-selection";
+        userStates[userId].remainingFlavours = remainingFlavours;
+        userStates[userId].remainingCount = remaining;
+        let menu = `🍦 *Elige hasta ${remaining} sabor(es) más:*\n\n`;
+        remainingFlavours.forEach((f, i) => {
+          menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
+        });
+        menu += `\n${numberToEmoji(0)} *No elegir más sabores*\n`;
+        menu += `\nResponde con el número de la opción (0-${remainingFlavours.length}).`;
+        console.log(`[BOT] Transición a estado: add-flavour-selection`);
+        return menu;
       } else {
         // Guardar sabores confirmados y ir al menú de add-ons
         console.log(`[BOT] Sabores completos, guardando y yendo a add-ons`);
@@ -614,42 +636,18 @@ async function handleBotMessage(message) {
     }
   }
 
-  // ¿Agregar más sabores?
-  if (userStates[userId].state === "add-more-flavour") {
-    const availableFlavours = userStates[userId].availableFlavours;
-    const maxFlavours = userStates[userId].maxFlavours || 1;
+  // Selección de sabor adicional
+  if (userStates[userId].state === "add-flavour-selection") {
+    const remainingFlavours = userStates[userId].remainingFlavours || [];
+    const remainingCount = userStates[userId].remainingCount || 1;
     const selectedOptions = userStates[userId].pendingFlavours || [];
-    const selectedFlavours = selectedOptions.map(
-      (opt) => availableFlavours[opt - 1].name
-    );
-    if (userMessage === "1" || userMessage === "sí" || userMessage === "si") {
-      const remaining = maxFlavours - selectedOptions.length;
-      const remainingFlavours = availableFlavours
-        .map((f, i) => ({ ...f, idx: i + 1 }))
-        .filter((f) => !selectedOptions.includes(f.idx));
-      if (remainingFlavours.length === 0) {
-        // Guardar sabores confirmados y mostrar menú de add-ons
-        userStates[userId].confirmedFlavours = selectedFlavours;
-        userStates[userId].state = "add-ons-selection";
-        const { menu, addOns } = await getAddOnsMenu();
-        userStates[userId].availableAddOns = addOns;
-        console.log(
-          `[BOT] Transición a estado: add-ons-selection (sin más sabores)`
-        );
-        return menu;
-      }
-      userStates[userId].state = "add-flavour-selection";
-      userStates[userId].remainingFlavours = remainingFlavours;
-      userStates[userId].remainingCount = remaining;
-      let menu = `🍦 *Elige ${remaining} sabor(es) más:*\n\n`;
-      remainingFlavours.forEach((f, i) => {
-        menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
-      });
-      menu += `\nResponde con el número de la opción.`;
-      console.log(`[BOT] Transición a estado: add-flavour-selection`);
-      return menu;
-    } else if (userMessage === "2" || userMessage === "no") {
-      // Guardar sabores confirmados y mostrar menú de add-ons
+    const opt = parseInt(userMessage, 10);
+
+    // Manejar opción 0 (no elegir más sabores)
+    if (opt === 0) {
+      const selectedFlavours = selectedOptions.map(
+        (idx) => userStates[userId].availableFlavours[idx - 1].name
+      );
       userStates[userId].confirmedFlavours = selectedFlavours;
       userStates[userId].state = "add-ons-selection";
       const { menu, addOns } = await getAddOnsMenu();
@@ -658,27 +656,15 @@ async function handleBotMessage(message) {
         `[BOT] Transición a estado: add-ons-selection (usuario no quiere más sabores)`
       );
       return menu;
-    } else {
-      console.log(`[BOT] Respuesta inválida en add-more-flavour`);
-      const remaining = maxFlavours - selectedOptions.length;
-      return `Por favor responde con 1 (sí) o 2 (no).\n\nAún puedes elegir ${remaining} sabor${
-        remaining > 1 ? "es" : ""
-      } más, ¿quieres hacerlo?\n1️⃣ Sí\n2️⃣ No`;
     }
-  }
 
-  // Selección de sabor adicional
-  if (userStates[userId].state === "add-flavour-selection") {
-    const remainingFlavours = userStates[userId].remainingFlavours || [];
-    const remainingCount = userStates[userId].remainingCount || 1;
-    const selectedOptions = userStates[userId].pendingFlavours || [];
-    const opt = parseInt(userMessage, 10);
     if (isNaN(opt) || opt < 1 || opt > remainingFlavours.length) {
-      let menu = `❌ Selección inválida.\n\n🍦 *Elige ${remainingCount} sabor(es) más:*\n\n`;
+      let menu = `❌ Selección inválida.\n\n🍦 *Elige hasta ${remainingCount} sabor(es) más:*\n\n`;
       remainingFlavours.forEach((f, i) => {
         menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
       });
-      menu += `\nResponde con el número de la opción.`;
+      menu += `\n${numberToEmoji(0)} *No elegir más sabores*\n`;
+      menu += `\nResponde con el número de la opción (0-${remainingFlavours.length}).`;
       console.log(`[BOT] Selección inválida en add-flavour-selection`);
       return menu;
     }
