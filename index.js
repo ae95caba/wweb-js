@@ -6,7 +6,6 @@ const {
   handleBotMessage,
   getBotStats,
   userStates,
-  mutedUsers,
 } = require("./ai,js");
 
 // Flag para indicar que se está enviando un mensaje automático
@@ -158,9 +157,8 @@ client.on("message_create", async (message) => {
 
       // Si el flag no está activo, es un mensaje manual (enviado por WhatsApp Web)
       const userToMute = message.to;
-      mutedUsers[userToMute] = Date.now() + 6 * 60 * 60 * 1000; // Mute por 6 horas
       console.log(
-        `[message_create] Bot desactivado automáticamente para ${userToMute} por mensaje manual (ID: ${messageId})`
+        `[message_create] Mensaje manual detectado para ${userToMute} (ID: ${messageId}) - El bot se desactivará automáticamente si hay actividad reciente`
       );
       return;
     }
