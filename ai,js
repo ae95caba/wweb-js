@@ -63,7 +63,7 @@ async function getMainMenu({ allowCancelAddProduct = false } = {}) {
     const availableProducts = products.filter(
       (p) => !p.outOfStock && p.type !== "add-on"
     );
-    let menu = `🍦 *¡Gracias por comunicarte con Dulce Tentación!*\n\n📱 *También puedes ver nuestro catálogo completo online:*\n🌐 https://dulce-tentacion-mp.netlify.app/\n\n`;
+    let menu = `🤖 *¡Gracias por comunicarte con Dulce Tentación!*\n\n📱 *También puedes ver nuestro catálogo completo online:*\n🌐 https://dulce-tentacion-mp.netlify.app/\n\n`;
     menu += `─────────────\n`;
     menu += `0️⃣ *💬 HABLAR CON UNA PERSONA REAL*\n`;
     menu += `─────────────\n`;
@@ -1245,11 +1245,20 @@ async function shouldIgnoreMessage(
       const targetNumber = "5491130350056@c.us"; // Número del bot
       const hasManualMessage = recentMessages.some((msg) => {
         // Verificar si es un mensaje del bot que NO fue automático
-        return (
-          msg.from === targetNumber &&
-          msg.fromMe &&
-          !wasMessageAutoAtTime(msg.timestamp)
+        const isFromBot = msg.from === targetNumber;
+        const isFromMe = msg.fromMe;
+        const wasAuto = wasMessageAutoAtTime(msg.timestamp);
+
+        console.log(
+          `[DEBUG] Mensaje: "${msg.body?.substring(
+            0,
+            30
+          )}..." - fromBot: ${isFromBot}, fromMe: ${isFromMe}, wasAuto: ${wasAuto}, timestamp: ${new Date(
+            msg.timestamp * 1000
+          ).toLocaleString()}`
         );
+
+        return isFromBot && isFromMe && !wasAuto;
       });
 
       if (hasManualMessage) {
@@ -1271,6 +1280,10 @@ async function shouldIgnoreMessage(
           }" - ${new Date(adminMessage.timestamp * 1000).toLocaleString()}`
         );
         return true;
+      } else {
+        console.log(
+          `[DEBUG] No se encontraron mensajes manuales del admin en las últimas 6 horas`
+        );
       }
     } catch (error) {
       console.log(

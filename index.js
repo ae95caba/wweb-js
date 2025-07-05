@@ -40,6 +40,15 @@ function setAutoMessageFlag(value) {
 function wasMessageAutoAtTime(messageTimestamp) {
   const msgTime = messageTimestamp * 1000;
 
+  console.log(
+    `[DEBUG] wasMessageAutoAtTime - Mensaje timestamp: ${new Date(
+      msgTime
+    ).toLocaleString()}`
+  );
+  console.log(
+    `[DEBUG] wasMessageAutoAtTime - Historial disponible: ${autoMessageHistory.length} entradas`
+  );
+
   // Buscar el estado del flag más cercano al timestamp del mensaje
   let closestEntry = null;
   let minDiff = Infinity;
@@ -52,12 +61,35 @@ function wasMessageAutoAtTime(messageTimestamp) {
     }
   }
 
+  console.log(
+    `[DEBUG] wasMessageAutoAtTime - Entrada más cercana: ${
+      closestEntry
+        ? `timestamp: ${new Date(
+            closestEntry.timestamp
+          ).toLocaleString()}, isAuto: ${closestEntry.isAuto}`
+        : "null"
+    }`
+  );
+  console.log(
+    `[DEBUG] wasMessageAutoAtTime - Diferencia mínima: ${minDiff}ms (${Math.round(
+      minDiff / 1000
+    )}s)`
+  );
+
   // Si no hay entradas en el historial o la diferencia es muy grande, asumir que fue manual
   if (!closestEntry || minDiff > 30 * 1000) {
     // Más de 30 segundos de diferencia
+    console.log(
+      `[DEBUG] wasMessageAutoAtTime - Asumiendo MANUAL (sin datos suficientes)`
+    );
     return false;
   }
 
+  console.log(
+    `[DEBUG] wasMessageAutoAtTime - Resultado: ${
+      closestEntry.isAuto ? "AUTOMÁTICO" : "MANUAL"
+    }`
+  );
   return closestEntry.isAuto;
 }
 
