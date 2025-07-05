@@ -1146,7 +1146,7 @@ async function handleBotMessage(message) {
       console.log(
         `[BOT] Usuario en estado order-complete, mensaje: '${userMessage}'`
       );
-      return `✅ *¡Tu pedido ya fue confirmado!*\n\nSi quieres hacer otro pedido, escribe "menu" para empezar de nuevo.`;
+      return; // No responder con mensaje irrelevante
     }
   }
 
