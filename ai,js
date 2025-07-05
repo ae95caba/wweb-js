@@ -1219,35 +1219,47 @@ async function shouldIgnoreMessage(message) {
   }
 
   // --- VERIFICAR ACTIVIDAD RECIENTE EN EL CHAT (ÚLTIMAS 6 HORAS) ---
-  /*IMPORTANTE:En este punto, chat.timestamp representa el timestamp del ÚLTIMO mensaje 
-  ANTES del mensaje actual recibido.Esto se debe a que WhatsApp Web JS aún no ha actualizado 
-  el objeto chat con el nuevo mensaje cuando se ejecuta este código.Por lo tanto, comparar la
-   hora actual con chat.timestamp nos permite saber si hubo actividad reciente ANTES del mensaje 
-   actual.Si el valor es menor a 6 horas, significa que hubo un mensaje previo reciente y se
-    puede mutear el chat correctamente.Si alguna vez se cambia el flujo de eventos, revisar este comportamiento.*/
+  /*
+    IMPORTANTE:
+    En este punto, chat.timestamp representa el timestamp del ÚLTIMO mensaje ANTES del mensaje actual recibido.
+    Esto se debe a que WhatsApp Web JS aún no ha actualizado el objeto chat con el nuevo mensaje cuando se ejecuta este código.
+    Por lo tanto, comparar la hora actual con chat.timestamp nos permite saber si hubo actividad reciente ANTES del mensaje actual.
+    SOLO consideramos mensajes del número del bot que NO sean del bot (mensajes manuales del admin).
+    Si el valor es menor a 6 horas, significa que hubo un mensaje manual reciente y se puede mutear el chat correctamente.
+  */
   try {
     const lastMessageTime = chat.timestamp * 1000; // Convertir a milisegundos
     const currentTime = Date.now();
     const hoursSinceLastMessage =
       (currentTime - lastMessageTime) / (1000 * 60 * 60);
 
-    console.log(
-      `[CHAT] Chat ${message.from} - Último mensaje: ${new Date(
-        lastMessageTime
-      ).toLocaleString()}, hace ${hoursSinceLastMessage.toFixed(2)} horas`
-    );
+    // Solo verificar si el último mensaje fue del bot (número del bot) y no fue automático
+    const targetNumber = "5491130350056@c.us"; // Número del bot
+    const lastMessage = chat.lastMessage;
 
-    if (hoursSinceLastMessage < 6) {
+    if (
+      lastMessage &&
+      lastMessage.from === targetNumber &&
+      lastMessage.fromMe
+    ) {
       console.log(
-        `[BOT] Chat ${
-          message.from
-        } tiene mensaje reciente (hace ${hoursSinceLastMessage.toFixed(
-          2
-        )} horas), desactivando bot automáticamente`
+        `[CHAT] Chat ${message.from} - Último mensaje del bot: ${new Date(
+          lastMessageTime
+        ).toLocaleString()}, hace ${hoursSinceLastMessage.toFixed(2)} horas`
       );
-      // Muteamos al usuario por 6 horas para evitar que el bot interfiera
-      mutedUsers[message.from] = Date.now() + 6 * 60 * 60 * 1000;
-      return true;
+
+      if (hoursSinceLastMessage < 6) {
+        console.log(
+          `[BOT] Chat ${
+            message.from
+          } tiene mensaje manual reciente del admin (hace ${hoursSinceLastMessage.toFixed(
+            2
+          )} horas), desactivando bot automáticamente`
+        );
+        // Muteamos al usuario por 6 horas para evitar que el bot interfiera
+        mutedUsers[message.from] = Date.now() + 6 * 60 * 60 * 1000;
+        return true;
+      }
     }
   } catch (error) {
     console.log(
