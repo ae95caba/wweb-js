@@ -127,8 +127,8 @@ async function getAddOnsMenu() {
         addon.price
       }\n`;
     });
-    menu += `\n${numberToEmoji(addOns.length + 1)} *No, gracias*\n`;
-    menu += `\nResponde con el número de la opción (1-${addOns.length + 1})`;
+    menu += `\n*No, gracias*\n`;
+    menu += `\nResponde con el número de la opción (1-${addOns.length}) o escribe *no*`;
     return { menu, addOns };
   } catch (e) {
     return {
@@ -277,7 +277,7 @@ async function showIceCreamConfirmation(userId) {
 
   return `${renderCart(
     userStates[userId].cart
-  )}\n\n¿Quieres agregar otro producto?\n1️⃣ Sí\n2️⃣ No`;
+  )}\n\n¿Quieres agregar otro producto?\n\nResponde con *sí* o *no*`;
 }
 
 // Formatea la descripción: primera letra mayúscula, salto de línea tras cada punto y al final
@@ -324,7 +324,7 @@ function getAddOnConfirmationPrompt({
     prompt += `💲Precio: $${price}\n`;
   }
 
-  prompt += `\n¿Confirmas este aderezo?\n1️⃣ Sí\n2️⃣ No`;
+  prompt += `\n¿Confirmas este aderezo?\n\nResponde con *sí* o *no*`;
   return prompt;
 }
 
@@ -452,7 +452,7 @@ async function handleBotMessage(message) {
       selectedProduct.description ? selectedProduct.description + "\n\n" : ""
     }💲Precio: $${
       selectedProduct.price
-    }\n\n¿Confirmas este producto?\n1️⃣ Sí\n2️⃣ No`;
+    }\n\n¿Confirmas este producto?\n\nResponde con *sí* o *no*`;
   }
 
   // Confirmación de producto seleccionado
@@ -510,11 +510,11 @@ async function handleBotMessage(message) {
         (p) => p._id === userStates[userId].selectedProductId
       );
       console.log(`[BOT] Respuesta inválida en confirm-product`);
-      return `Por favor responde con 1 (sí) o 2 (no).\n\n🍰 *${selectedProduct.name.toUpperCase()}*\n\n$${
+      return `Por favor responde con *sí* o *no*.\n\n🍰 *${selectedProduct.name.toUpperCase()}*\n\n$${
         selectedProduct.description ? selectedProduct.description + "\n\n" : ""
       }💲Precio: $${
         selectedProduct.price
-      }\n\n¿Confirmas este producto?\n1️⃣ Sí\n2️⃣ No`;
+      }\n\n¿Confirmas este producto?\n\nResponde con *sí* o *no*`;
     }
   }
 
@@ -557,7 +557,7 @@ async function handleBotMessage(message) {
     );
     return `🍦 *Los sabores que elegiste son:* ${selectedFlavours.join(
       ", "
-    )}\n\n¿Es correcto?\n1️⃣ Sí\n2️⃣ No`;
+    )}\n\n¿Es correcto?\n\nResponde con *sí* o *no*`;
   }
 
   // Confirmación de sabores
@@ -632,7 +632,7 @@ async function handleBotMessage(message) {
       console.log(`[BOT] Respuesta inválida en confirm-flavours`);
       return `Por favor responde con 1 (sí) o 2 (no).\n\n🍦 *Los sabores que elegiste son:* ${selectedFlavours.join(
         ", "
-      )}\n\n¿Es correcto?\n1️⃣ Sí\n2️⃣ No`;
+      )}\n\n¿Es correcto?\n\nResponde con *sí* o *no*`;
     }
   }
 
@@ -683,7 +683,7 @@ async function handleBotMessage(message) {
     );
     return `🍦 *Los sabores que elegiste son:* ${selectedFlavours.join(
       ", "
-    )}\n\n¿Es correcto?\n1️⃣ Sí\n2️⃣ No`;
+    )}\n\n¿Es correcto?\n\nResponde con *sí* o *no*`;
   }
 
   // Selección de add-ons
@@ -695,26 +695,25 @@ async function handleBotMessage(message) {
       availableAddOns ? availableAddOns.length : "undefined"
     );
 
-    const option = parseInt(userMessage, 10);
-    console.log(
-      `[BOT] Opción parseada: ${option}, rango válido: 1 a ${
-        availableAddOns.length + 1
-      }`
-    );
-
-    if (isNaN(option) || option < 1 || option > availableAddOns.length + 1) {
-      const { menu } = await getAddOnsMenu();
-      console.log(`[BOT] Opción inválida en add-ons-selection`);
-      return `❌ Por favor, selecciona una opción válida.\n\n${menu}`;
-    }
-
-    if (option === availableAddOns.length + 1) {
+    // Verificar si el usuario escribió "no"
+    if (userMessage === "no") {
       // Usuario eligió "No, gracias" - ir directamente a confirmación final
       userStates[userId].state = "show-ice-cream-confirmation";
       console.log(
         `[BOT] Transición a estado: show-ice-cream-confirmation (sin add-ons)`
       );
       return await showIceCreamConfirmation(userId);
+    }
+
+    const option = parseInt(userMessage, 10);
+    console.log(
+      `[BOT] Opción parseada: ${option}, rango válido: 1 a ${availableAddOns.length}`
+    );
+
+    if (isNaN(option) || option < 1 || option > availableAddOns.length) {
+      const { menu } = await getAddOnsMenu();
+      console.log(`[BOT] Opción inválida en add-ons-selection`);
+      return `❌ Por favor, selecciona una opción válida.\n\n${menu}`;
     }
 
     // Usuario eligió un add-on
@@ -920,12 +919,8 @@ async function handleBotMessage(message) {
           i + 1
         )} *${addon.name.toUpperCase()}* - $${addon.price}\n`;
       });
-      filteredMenu += `\n${numberToEmoji(
-        filteredAddOns.length + 1
-      )} *No, gracias*\n`;
-      filteredMenu += `\nResponde con el número de la opción (1-${
-        filteredAddOns.length + 1
-      })`;
+      filteredMenu += `\n*No, gracias*\n`;
+      filteredMenu += `\nResponde con el número de la opción (1-${filteredAddOns.length}) o escribe *no*`;
       return filteredMenu;
     } else if (userMessage === "2" || userMessage === "no") {
       userStates[userId].state = "show-ice-cream-confirmation";
@@ -1144,15 +1139,9 @@ async function handleBotMessage(message) {
   return `❌ Comando no reconocido. Escribe "menu" para volver al menú principal.\n\n${menu}`;
 }
 
-async function shouldIgnoreMessage(
-  message,
-  getIsSendingAutoMessage,
-  wasMessageAutoAtTime
-) {
-  let name;
-  let log;
+async function shouldIgnoreMessage(message) {
   const isFromMe = message._data.id.fromMe;
-  const targetNumber = "5491130350056@c.us"; // The number you don't want to forward messages to/from
+  const targetNumber = "5491130350056@c.us"; // Número del bot
 
   const hasImage = message.type === "image";
 
@@ -1204,18 +1193,13 @@ async function shouldIgnoreMessage(
 
   // Solo verificar actividad reciente si no hay otras razones para ignorar
   if (reasonsToIgnoreMessage.length === 0) {
-    // --- VERIFICAR ACTIVIDAD RECIENTE EN EL CHAT (ÚLTIMAS 6 HORAS) ---
-    /*
-      IMPORTANTE:
-      Verificamos todos los mensajes de las últimas 6 horas para detectar si hubo algún mensaje manual del admin.
-      Si encontramos un mensaje del bot que NO fue automático en las últimas 6 horas, desactivamos el bot.
-    */
+    // --- NUEVA LÓGICA SIMPLE: DETECTAR MENSAJES DEL ADMIN POR CONTENIDO ---
     try {
       const currentTime = Date.now();
       const sixHoursAgo = currentTime - 6 * 60 * 60 * 1000;
 
       // Obtener mensajes de las últimas 6 horas
-      const messages = await chat.fetchMessages({ limit: 50 }); // Obtener más mensajes para cubrir 6 horas
+      const messages = await chat.fetchMessages({ limit: 50 });
 
       // Filtrar mensajes de las últimas 6 horas
       const recentMessages = messages.filter((msg) => {
@@ -1228,33 +1212,36 @@ async function shouldIgnoreMessage(
       );
 
       // Verificar si hay algún mensaje manual del admin en las últimas 6 horas
-      const targetNumber = "5491130350056@c.us"; // Número del bot
       const hasManualMessage = recentMessages.some((msg) => {
-        // Verificar si es un mensaje del bot que NO fue automático
+        // Solo verificar mensajes del bot
         const isFromBot = msg.from === targetNumber;
         const isFromMe = msg.fromMe;
-        const wasAuto = wasMessageAutoAtTime(msg.timestamp);
+
+        if (!isFromBot || !isFromMe) return false;
+
+        // Función simple para detectar si es mensaje del bot o del admin
+        const isBotMessage = isBotGeneratedMessage(msg.body);
 
         console.log(
           `[DEBUG] Mensaje: "${msg.body?.substring(
             0,
-            30
-          )}..." - fromBot: ${isFromBot}, fromMe: ${isFromMe}, wasAuto: ${wasAuto}, timestamp: ${new Date(
+            50
+          )}..." - isFromBot: ${isFromBot}, isFromMe: ${isFromMe}, isBotMessage: ${isBotMessage}, timestamp: ${new Date(
             msg.timestamp * 1000
           ).toLocaleString()}`
         );
 
-        return isFromBot && isFromMe && !wasAuto;
+        // Si es mensaje del bot pero NO tiene características de bot, es manual del admin
+        return !isBotMessage;
       });
 
       if (hasManualMessage) {
         // Encontrar el mensaje específico del admin para mostrarlo en el log
         const adminMessage = recentMessages.find((msg) => {
-          return (
-            msg.from === targetNumber &&
-            msg.fromMe &&
-            !wasMessageAutoAtTime(msg.timestamp)
-          );
+          const isFromBot = msg.from === targetNumber;
+          const isFromMe = msg.fromMe;
+          if (!isFromBot || !isFromMe) return false;
+          return !isBotGeneratedMessage(msg.body);
         });
 
         console.log(
@@ -1286,6 +1273,54 @@ async function shouldIgnoreMessage(
     console.log("--------------- END -------------------");
     return reasonsToIgnoreMessage.length;
   }
+}
+
+// Función simple para detectar si un mensaje fue generado por el bot
+function isBotGeneratedMessage(messageBody) {
+  if (!messageBody || typeof messageBody !== "string") return false;
+
+  const text = messageBody;
+
+  // Contar características típicas de mensajes del bot
+  // Usar una expresión regular simple que detecte emojis comunes
+  const emojiMatches =
+    text.match(
+      /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]|[\u{FE00}-\u{FE0F}]|[\u{1F1F0}-\u{1F1FF}]|[\u{1F191}-\u{1F251}]|[\u{1F004}]|[\u{1F0CF}]|[\u{1F170}-\u{1F171}]|[\u{1F17E}-\u{1F17F}]|[\u{1F18E}]|[\u{3030}]|[\u{2B50}]|[\u{303D}]|[\u{3297}]|[\u{3299}]|[\u{23}]|[\u{2A}]|[\u{200D}]|[\u{23CF}]|[\u{24C2}]|[\u{1F004}]|[\u{1F0CF}]|[\u{1F170}-\u{1F171}]|[\u{1F17E}-\u{1F17F}]|[\u{1F18E}]|[\u{1F191}-\u{1F19A}]|[\u{1F1E6}-\u{1F1FF}]|[\u{1F201}-\u{1F202}]|[\u{1F21A}]|[\u{1F22F}]|[\u{1F232}-\u{1F23A}]|[\u{1F250}-\u{1F251}]|[\u{1F300}-\u{1F321}]|[\u{1F324}-\u{1F393}]|[\u{1F396}-\u{1F397}]|[\u{1F399}-\u{1F39B}]|[\u{1F39E}-\u{1F3F0}]|[\u{1F3F3}-\u{1F3F5}]|[\u{1F3F7}-\u{1F3FA}]|[\u{1F400}-\u{1F4FD}]|[\u{1F4FF}-\u{1F53D}]|[\u{1F549}-\u{1F54E}]|[\u{1F550}-\u{1F567}]|[\u{1F56F}-\u{1F570}]|[\u{1F573}-\u{1F57A}]|[\u{1F587}]|[\u{1F58A}-\u{1F58D}]|[\u{1F590}]|[\u{1F595}-\u{1F596}]|[\u{1F5A4}-\u{1F5A5}]|[\u{1F5A8}]|[\u{1F5B1}-\u{1F5B2}]|[\u{1F5BC}]|[\u{1F5C2}-\u{1F5C4}]|[\u{1F5D1}-\u{1F5D3}]|[\u{1F5DC}-\u{1F5DE}]|[\u{1F5E1}]|[\u{1F5E3}]|[\u{1F5E8}]|[\u{1F5EF}]|[\u{1F5F3}]|[\u{1F5FA}-\u{1F64F}]|[\u{1F680}-\u{1F6C5}]|[\u{1F6CB}-\u{1F6D2}]|[\u{1F6E0}-\u{1F6E5}]|[\u{1F6E9}]|[\u{1F6EB}-\u{1F6EC}]|[\u{1F6F0}]|[\u{1F6F3}-\u{1F6F9}]|[\u{1F910}-\u{1F93A}]|[\u{1F93C}-\u{1F93E}]|[\u{1F940}-\u{1F945}]|[\u{1F947}-\u{1F970}]|[\u{1F973}-\u{1F976}]|[\u{1F97A}]|[\u{1F97C}-\u{1F9A2}]|[\u{1F9B0}-\u{1F9B9}]|[\u{1F9C0}-\u{1F9C2}]|[\u{1F9D0}-\u{1F9FF}]/gu
+    ) || [];
+  const emojiCount = emojiMatches.length;
+  const newlineCount = (text.match(/\n/g) || []).length;
+  const boldCount = (text.match(/\*[^*]+\*/g) || []).length;
+
+  console.log(
+    `[DEBUG] isBotGeneratedMessage - Emojis encontrados: [${emojiMatches.join(
+      ", "
+    )}]`
+  );
+  console.log(
+    `[DEBUG] isBotGeneratedMessage - Emojis: ${emojiCount}, Saltos: ${newlineCount}, Negritas: ${boldCount}`
+  );
+
+  // Es mensaje del bot si tiene al menos 2 de estas características:
+  // - 3 o más emojis
+  // - 2 o más saltos de línea
+  // - 2 o más negritas
+  const hasManyEmojis = emojiCount >= 3;
+  const hasManyNewlines = newlineCount >= 2;
+  const hasManyBolds = boldCount >= 2;
+
+  const botCharacteristics = [
+    hasManyEmojis,
+    hasManyNewlines,
+    hasManyBolds,
+  ].filter(Boolean).length;
+
+  const isBot = botCharacteristics >= 2;
+
+  console.log(
+    `[DEBUG] isBotGeneratedMessage - Resultado: ${isBot} (${botCharacteristics}/3 características)`
+  );
+
+  return isBot;
 }
 
 // Función para obtener estadísticas de usuarios
