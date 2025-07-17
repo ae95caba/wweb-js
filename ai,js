@@ -89,15 +89,20 @@ async function getMainMenu({ allowCancelAddProduct = false } = {}) {
 }
 
 // Función para mostrar menú de sabores de helado
-async function getFlavourMenu(maxFlavours = 1) {
+async function getFlavourMenu(maxFlavours = 1, confirmedFlavours = []) {
   try {
     const { data: flavours } = await axios.get(
       "http://localhost:3000/generic/flavour"
     );
     const availableFlavours = flavours.filter((f) => !f.outOfStock);
     let menu = `🍦 *Elige hasta ${maxFlavours} sabores:*\n\n`;
+    if (confirmedFlavours.length > 0) {
+      menu += `*Sabores elegidos:* ${confirmedFlavours.join(", ")}\n\n`;
+    }
     availableFlavours.forEach((f, i) => {
-      menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
+      if (!confirmedFlavours.includes(f.name)) {
+        menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
+      }
     });
     menu += `\n💡 *Puedes elegir múltiples sabores de una vez*\n`;
     menu += `📝 *Ejemplos:*\n`;
@@ -524,40 +529,52 @@ async function handleBotMessage(message) {
   if (userStates[userId].state === "ice-cream-flavour") {
     const availableFlavours = userStates[userId].availableFlavours;
     const maxFlavours = userStates[userId].maxFlavours || 1;
+    const confirmedFlavours = userStates[userId].confirmedFlavours || [];
     const selectedOptions = userMessage
       .split(/[\,\s]+/)
       .map((x) => parseInt(x, 10))
       .filter((x) => !isNaN(x));
-    if (
+    // Validar que no se repitan sabores ya confirmados
+    const invalid =
       !availableFlavours ||
       selectedOptions.length === 0 ||
       selectedOptions.some(
-        (opt) => opt < 1 || opt > availableFlavours.length
+        (opt) =>
+          opt < 1 ||
+          opt > availableFlavours.length ||
+          confirmedFlavours.includes(availableFlavours[opt - 1].name)
       ) ||
-      selectedOptions.length > maxFlavours
-    ) {
-      const { menu } = await getFlavourMenu(maxFlavours);
-      console.log(`[BOT] Selección de sabores inválida`);
-      return (
-        `❌ *Selección inválida*\n\n💡 *Recuerda:*\n` +
-        `• Puedes elegir hasta ${maxFlavours} sabor${
-          maxFlavours > 1 ? "es" : ""
-        }\n` +
-        `• Usa números del 1 al ${availableFlavours.length}\n` +
-        `• Separa con espacios: *1 3 5*\n\n${menu}`
-      );
+      selectedOptions.length + confirmedFlavours.length > maxFlavours;
+    if (invalid) {
+      let menu = `❌ Selección inválida.\n\n🍦 *Elige hasta ${
+        maxFlavours - confirmedFlavours.length
+      } sabor(es):*\n\n`;
+      if (confirmedFlavours.length > 0) {
+        menu += `*Sabores elegidos:* ${confirmedFlavours.join(", ")}\n\n`;
+      }
+      availableFlavours.forEach((f, i) => {
+        if (!confirmedFlavours.includes(f.name)) {
+          menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
+        }
+      });
+      menu += `\n💡 *Puedes elegir múltiples sabores de una vez*\n`;
+      menu += `📝 *Ejemplo: 1 3 5* (para elegir los sabores 1, 3 y 5)`;
+      return menu;
     }
     userStates[userId].pendingFlavours = selectedOptions;
-    const selectedFlavours = selectedOptions.map(
+    // Mostrar solo los sabores pendientes en la confirmación
+    const pendingFlavoursNames = selectedOptions.map(
       (opt) => availableFlavours[opt - 1].name
     );
     userStates[userId].state = "confirm-flavours";
     console.log(
-      `[BOT] Transición a estado: confirm-flavours (sabores: ${selectedFlavours.join(
+      `[BOT] Transición a estado: confirm-flavours (sabores: ${pendingFlavoursNames.join(
         ", "
       )})`
     );
-    return `🍦 *Los sabores que elegiste son:* ${selectedFlavours.join(
+    return `🍦 *Sabores elegidos:* ${confirmedFlavours.join(
+      ", "
+    )}\n\n*Los sabores que elegiste ahora son:* ${pendingFlavoursNames.join(
       ", "
     )}\n\n¿Es correcto?\n\nResponde con *sí* o *no*`;
   }
@@ -568,25 +585,26 @@ async function handleBotMessage(message) {
     const availableFlavours = userStates[userId].availableFlavours;
     const maxFlavours = userStates[userId].maxFlavours || 1;
     const selectedOptions = userStates[userId].pendingFlavours || [];
-    const selectedFlavours = selectedOptions.map(
+    const pendingFlavoursNames = selectedOptions.map(
       (opt) => availableFlavours[opt - 1].name
     );
-    console.log(
-      `[BOT] Sabores seleccionados: ${selectedFlavours.join(
-        ", "
-      )}, maxFlavours: ${maxFlavours}`
-    );
+    // Recuperar los sabores confirmados previos (si existen)
+    const confirmedFlavours = userStates[userId].confirmedFlavours || [];
 
     if (userMessage === "1" || userMessage === "sí" || userMessage === "si") {
-      if (selectedOptions.length < maxFlavours) {
-        const remaining = maxFlavours - selectedOptions.length;
+      // Acumular los sabores confirmados
+      const allConfirmed = confirmedFlavours.concat(pendingFlavoursNames);
+      userStates[userId].confirmedFlavours = allConfirmed;
+      // Limpiar los pendientes
+      userStates[userId].pendingFlavours = [];
+      if (allConfirmed.length < maxFlavours) {
+        const remaining = maxFlavours - allConfirmed.length;
         const remainingFlavours = availableFlavours
           .map((f, i) => ({ ...f, idx: i + 1 }))
-          .filter((f) => !selectedOptions.includes(f.idx));
+          .filter((f) => !allConfirmed.includes(f.name));
 
         if (remainingFlavours.length === 0) {
           // No hay más sabores disponibles, ir directamente a add-ons
-          userStates[userId].confirmedFlavours = selectedFlavours;
           userStates[userId].state = "add-ons-selection";
           const { menu, addOns } = await getAddOnsMenu();
           userStates[userId].availableAddOns = addOns;
@@ -599,18 +617,26 @@ async function handleBotMessage(message) {
         userStates[userId].state = "add-flavour-selection";
         userStates[userId].remainingFlavours = remainingFlavours;
         userStates[userId].remainingCount = remaining;
+        // Mostrar los sabores ya elegidos al principio
+        const confirmedFlavours = userStates[userId].confirmedFlavours || [];
         let menu = `🍦 *Elige hasta ${remaining} sabor(es) más:*\n\n`;
+        if (confirmedFlavours.length > 0) {
+          menu += `*Sabores elegidos:* ${confirmedFlavours.join(", ")}\n\n`;
+        }
         menu += `${numberToEmoji(0)} *No elegir más sabores*\n`;
-        remainingFlavours.forEach((f, i) => {
-          menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
+        // Mostrar solo los sabores no elegidos, pero con su número original
+        const allFlavours = userStates[userId].availableFlavours;
+        allFlavours.forEach((f, i) => {
+          if (!confirmedFlavours.includes(f.name)) {
+            menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
+          }
         });
-        menu += `\nResponde con el número de la opción (0-${remainingFlavours.length}).`;
+        menu += `\nResponde con el número de la opción (0-${allFlavours.length}).`;
         console.log(`[BOT] Transición a estado: add-flavour-selection`);
         return menu;
       } else {
         // Guardar sabores confirmados y ir al menú de add-ons
         console.log(`[BOT] Sabores completos, guardando y yendo a add-ons`);
-        userStates[userId].confirmedFlavours = selectedFlavours;
         userStates[userId].state = "add-ons-selection";
         const { menu, addOns } = await getAddOnsMenu();
         userStates[userId].availableAddOns = addOns;
@@ -620,11 +646,19 @@ async function handleBotMessage(message) {
         return menu;
       }
     } else if (userMessage === "2" || userMessage === "no") {
+      // Solo reiniciar los sabores pendientes, mantener los confirmados
+      // (no tocar confirmedFlavours)
+      userStates[userId].pendingFlavours = [];
       userStates[userId].state = "ice-cream-flavour";
       console.log(
-        `[BOT] Transición a estado: ice-cream-flavour (repetir selección)`
+        `[BOT] Transición a estado: ice-cream-flavour (repetir selección, confirmados previos: ${confirmedFlavours.join(
+          ", "
+        )})`
       );
-      return await getFlavourMenu(userStates[userId].maxFlavours).then(
+      return await getFlavourMenu(
+        userStates[userId].maxFlavours,
+        confirmedFlavours || []
+      ).then(
         ({ menu }) =>
           menu +
           `\n\n💡 *Recuerda: Puedes elegir hasta ${userStates[userId].maxFlavours} sabores de una vez*\n` +
@@ -632,7 +666,7 @@ async function handleBotMessage(message) {
       );
     } else {
       console.log(`[BOT] Respuesta inválida en confirm-flavours`);
-      return `Por favor responde con 1 (sí) o 2 (no).\n\n🍦 *Los sabores que elegiste son:* ${selectedFlavours.join(
+      return `Por favor responde con 1 (sí) o 2 (no).\n\n🍦 *Los sabores que elegiste son:* ${pendingFlavoursNames.join(
         ", "
       )}\n\n¿Es correcto?\n\nResponde con *sí* o *no*`;
     }
@@ -644,13 +678,18 @@ async function handleBotMessage(message) {
     const remainingCount = userStates[userId].remainingCount || 1;
     const selectedOptions = userStates[userId].pendingFlavours || [];
     const opt = parseInt(userMessage, 10);
+    const allFlavours = userStates[userId].availableFlavours;
+    const confirmedFlavours = userStates[userId].confirmedFlavours || [];
 
     // Manejar opción 0 (no elegir más sabores)
     if (opt === 0) {
-      const selectedFlavours = selectedOptions.map(
-        (idx) => userStates[userId].availableFlavours[idx - 1].name
+      // Acumular los confirmados previos más los pendientes
+      const confirmedFlavours = userStates[userId].confirmedFlavours || [];
+      const pendingFlavours = selectedOptions.map(
+        (idx) => allFlavours[idx - 1].name
       );
-      userStates[userId].confirmedFlavours = selectedFlavours;
+      userStates[userId].confirmedFlavours =
+        confirmedFlavours.concat(pendingFlavours);
       userStates[userId].state = "add-ons-selection";
       const { menu, addOns } = await getAddOnsMenu();
       userStates[userId].availableAddOns = addOns;
@@ -660,20 +699,30 @@ async function handleBotMessage(message) {
       return menu;
     }
 
-    if (isNaN(opt) || opt < 1 || opt > remainingFlavours.length) {
+    // Validar opción: debe ser un número de sabor válido, no elegido aún
+    if (
+      isNaN(opt) ||
+      opt < 1 ||
+      opt > allFlavours.length ||
+      confirmedFlavours.includes(allFlavours[opt - 1].name)
+    ) {
       let menu = `❌ Selección inválida.\n\n🍦 *Elige hasta ${remainingCount} sabor(es) más:*\n\n`;
+      if (confirmedFlavours.length > 0) {
+        menu += `*Sabores elegidos:* ${confirmedFlavours.join(", ")}\n\n`;
+      }
       menu += `${numberToEmoji(0)} *No elegir más sabores*\n`;
-      remainingFlavours.forEach((f, i) => {
-        menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
+      allFlavours.forEach((f, i) => {
+        if (!confirmedFlavours.includes(f.name)) {
+          menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
+        }
       });
-      menu += `\nResponde con el número de la opción (0-${remainingFlavours.length}).`;
+      menu += `\nResponde con el número de la opción (0-${allFlavours.length}).`;
       console.log(`[BOT] Selección inválida en add-flavour-selection`);
       return menu;
     }
-    const newFlavourIdx = remainingFlavours[opt - 1].idx;
-    selectedOptions.push(newFlavourIdx);
+    // Agregar el sabor elegido (índice opt-1 de la lista original)
+    selectedOptions.push(opt);
     userStates[userId].pendingFlavours = selectedOptions;
-    const allFlavours = userStates[userId].availableFlavours;
     const selectedFlavours = selectedOptions.map(
       (idx) => allFlavours[idx - 1].name
     );
