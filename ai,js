@@ -89,13 +89,13 @@ async function getMainMenu({ allowCancelAddProduct = false } = {}) {
 }
 
 // Función para mostrar menú de sabores de helado
-async function getFlavourMenu() {
+async function getFlavourMenu(maxFlavours = 1) {
   try {
     const { data: flavours } = await axios.get(
       "http://localhost:3000/generic/flavour"
     );
     const availableFlavours = flavours.filter((f) => !f.outOfStock);
-    let menu = `🍦 *Elige los sabores de helado:*\n\n`;
+    let menu = `🍦 *Elige hasta ${maxFlavours} sabores:*\n\n`;
     availableFlavours.forEach((f, i) => {
       menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
     });
@@ -465,7 +465,9 @@ async function handleBotMessage(message) {
       if (selectedProduct.type === "ice-cream") {
         userStates[userId].state = "ice-cream-flavour";
         userStates[userId].maxFlavours = selectedProduct.flavours || 1;
-        const { menu, availableFlavours } = await getFlavourMenu();
+        const { menu, availableFlavours } = await getFlavourMenu(
+          userStates[userId].maxFlavours
+        );
         userStates[userId].availableFlavours = availableFlavours;
         console.log(
           `[BOT] Transición a estado: ice-cream-flavour (maxFlavours: ${userStates[userId].maxFlavours})`
@@ -534,7 +536,7 @@ async function handleBotMessage(message) {
       ) ||
       selectedOptions.length > maxFlavours
     ) {
-      const { menu } = await getFlavourMenu();
+      const { menu } = await getFlavourMenu(maxFlavours);
       console.log(`[BOT] Selección de sabores inválida`);
       return (
         `❌ *Selección inválida*\n\n💡 *Recuerda:*\n` +
@@ -598,10 +600,10 @@ async function handleBotMessage(message) {
         userStates[userId].remainingFlavours = remainingFlavours;
         userStates[userId].remainingCount = remaining;
         let menu = `🍦 *Elige hasta ${remaining} sabor(es) más:*\n\n`;
+        menu += `${numberToEmoji(0)} *No elegir más sabores*\n`;
         remainingFlavours.forEach((f, i) => {
           menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
         });
-        menu += `\n${numberToEmoji(0)} *No elegir más sabores*\n`;
         menu += `\nResponde con el número de la opción (0-${remainingFlavours.length}).`;
         console.log(`[BOT] Transición a estado: add-flavour-selection`);
         return menu;
@@ -622,10 +624,10 @@ async function handleBotMessage(message) {
       console.log(
         `[BOT] Transición a estado: ice-cream-flavour (repetir selección)`
       );
-      return await getFlavourMenu().then(
+      return await getFlavourMenu(userStates[userId].maxFlavours).then(
         ({ menu }) =>
           menu +
-          `\n\n💡 *Recuerda: Puedes elegir hasta ${maxFlavours} sabores de una vez*\n` +
+          `\n\n💡 *Recuerda: Puedes elegir hasta ${userStates[userId].maxFlavours} sabores de una vez*\n` +
           `📝 *Ejemplo: 1 3 5* (para elegir los sabores 1, 3 y 5)`
       );
     } else {
@@ -660,10 +662,10 @@ async function handleBotMessage(message) {
 
     if (isNaN(opt) || opt < 1 || opt > remainingFlavours.length) {
       let menu = `❌ Selección inválida.\n\n🍦 *Elige hasta ${remainingCount} sabor(es) más:*\n\n`;
+      menu += `${numberToEmoji(0)} *No elegir más sabores*\n`;
       remainingFlavours.forEach((f, i) => {
         menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
       });
-      menu += `\n${numberToEmoji(0)} *No elegir más sabores*\n`;
       menu += `\nResponde con el número de la opción (0-${remainingFlavours.length}).`;
       console.log(`[BOT] Selección inválida en add-flavour-selection`);
       return menu;
