@@ -96,6 +96,8 @@ async function getFlavourMenu(maxFlavours = 1, confirmedFlavours = []) {
     );
     const availableFlavours = flavours.filter((f) => !f.outOfStock);
     let menu = `🍦 *Elige hasta ${maxFlavours} sabores:*\n\n`;
+    menu += `💡 *Podes elegir múltiples sabores de una vez:*\n`;
+    menu += `• Para elegir Vainilla, Chocolate y Frutilla: *1 2 3*\n`;
     if (confirmedFlavours.length > 0) {
       menu += `*Sabores elegidos:* ${confirmedFlavours.join(", ")}\n\n`;
     }
@@ -104,11 +106,6 @@ async function getFlavourMenu(maxFlavours = 1, confirmedFlavours = []) {
         menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
       }
     });
-    menu += `\n💡 *Puedes elegir múltiples sabores de una vez*\n`;
-    menu += `📝 *Ejemplos:*\n`;
-    menu += `• Para elegir solo Vainilla: *1*\n`;
-    menu += `• Para elegir Vainilla y Chocolate: *1 2*\n`;
-    menu += `• Para elegir Vainilla, Chocolate y Frutilla: *1 2 3*\n`;
 
     return { menu, availableFlavours };
   } catch (e) {
@@ -418,9 +415,19 @@ async function handleBotMessage(message) {
     console.log(`[BOT] Rango válido: 0 a ${availableProducts.length + 1}`);
 
     if (isNaN(option) || option < 0 || option > availableProducts.length + 1) {
-      const { menu } = await getMainMenu({ allowCancelAddProduct: false });
+      const { menu, availableProducts: products } = await getMainMenu({
+        allowCancelAddProduct: false,
+      });
       console.log(`[BOT] Opción inválida en menú principal: ${option}`);
-      return `❌ Por favor, selecciona una opción válida.\n\n${menu}`;
+
+      // Crear menú simplificado sin la introducción para opciones inválidas
+      const menuLines = menu.split("\n");
+      const startIndex = menuLines.findIndex((line) =>
+        line.includes("─────────────")
+      );
+      const simplifiedMenu = menuLines.slice(startIndex).join("\n");
+
+      return `❌ Por favor, selecciona una opción válida.\n\n${simplifiedMenu}`;
     }
 
     console.log(`[BOT] Opción válida seleccionada: ${option}`);
@@ -677,12 +684,17 @@ async function handleBotMessage(message) {
     const remainingFlavours = userStates[userId].remainingFlavours || [];
     const remainingCount = userStates[userId].remainingCount || 1;
     const selectedOptions = userStates[userId].pendingFlavours || [];
-    const opt = parseInt(userMessage, 10);
     const allFlavours = userStates[userId].availableFlavours;
     const confirmedFlavours = userStates[userId].confirmedFlavours || [];
 
+    // Procesar múltiples opciones como en ice-cream-flavour
+    const selectedOptionsInput = userMessage
+      .split(/[\,\s]+/)
+      .map((x) => parseInt(x, 10))
+      .filter((x) => !isNaN(x));
+
     // Manejar opción 0 (no elegir más sabores)
-    if (opt === 0) {
+    if (selectedOptionsInput.includes(0)) {
       // Acumular los confirmados previos más los pendientes
       const confirmedFlavours = userStates[userId].confirmedFlavours || [];
       const pendingFlavours = selectedOptions.map(
@@ -699,13 +711,18 @@ async function handleBotMessage(message) {
       return menu;
     }
 
-    // Validar opción: debe ser un número de sabor válido, no elegido aún
-    if (
-      isNaN(opt) ||
-      opt < 1 ||
-      opt > allFlavours.length ||
-      confirmedFlavours.includes(allFlavours[opt - 1].name)
-    ) {
+    // Validar que las opciones sean válidas
+    const invalid =
+      selectedOptionsInput.length === 0 ||
+      selectedOptionsInput.some(
+        (opt) =>
+          opt < 1 ||
+          opt > allFlavours.length ||
+          confirmedFlavours.includes(allFlavours[opt - 1].name)
+      ) ||
+      selectedOptionsInput.length > remainingCount;
+
+    if (invalid) {
       let menu = `❌ Selección inválida.\n\n🍦 *Elige hasta ${remainingCount} sabor(es) más:*\n\n`;
       if (confirmedFlavours.length > 0) {
         menu += `*Sabores elegidos:* ${confirmedFlavours.join(", ")}\n\n`;
@@ -716,12 +733,14 @@ async function handleBotMessage(message) {
           menu += `${numberToEmoji(i + 1)} *${f.name}*\n`;
         }
       });
-      menu += `\nResponde con el número de la opción (0-${allFlavours.length}).`;
+      menu += `\n💡 *Puedes elegir múltiples sabores de una vez*\n`;
+      menu += `📝 *Ejemplo: 1 3 5* (para elegir los sabores 1, 3 y 5)`;
       console.log(`[BOT] Selección inválida en add-flavour-selection`);
       return menu;
     }
-    // Agregar el sabor elegido (índice opt-1 de la lista original)
-    selectedOptions.push(opt);
+
+    // Agregar los sabores elegidos
+    selectedOptions.push(...selectedOptionsInput);
     userStates[userId].pendingFlavours = selectedOptions;
     const selectedFlavours = selectedOptions.map(
       (idx) => allFlavours[idx - 1].name
