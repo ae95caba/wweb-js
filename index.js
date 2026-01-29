@@ -11,6 +11,13 @@ const {
 // Use the session data if it exists
 const client = new Client({
   authStrategy: new LocalAuth(),
+  puppeteer: {
+    headless: false, // 👈 clave para debug
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+    ],
+  },
 });
 
 client.on("ready", () => {
@@ -127,9 +134,8 @@ client.on("disconnected", (reason) => {
 function showBotStats() {
   const stats = getBotStats();
   console.log("📊 Estadísticas del bot:");
-  console.log(`   Total usuarios: ${stats.totalUsers}`);
-  console.log(`   Usuarios con soporte humano: ${stats.usersWithHumanSupport}`);
-  console.log(`   Usuarios activos del bot: ${stats.activeBotUsers}`);
+  console.log(`   Total usuarios contactados: ${stats.totalUsers}`);
+  console.log(`   Usuarios contactados hoy: ${stats.activeToday}`);
 }
 
 // Mostrar estadísticas cada 5 minutos
